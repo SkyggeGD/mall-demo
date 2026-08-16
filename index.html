@@ -60,7 +60,7 @@
     }
   };
   // ===== Persistencia (localStorage) + sincronización entre pestañas =====
-  const DKEY='mallDemoDB', DVER='2026-08-16b';
+  const DKEY='mallDemoDB', DVER='2026-08-16c';
   function load(){ try{ const raw=localStorage.getItem(DKEY); if(raw && localStorage.getItem(DKEY+'_v')===DVER) return JSON.parse(raw); }catch(e){} return JSON.parse(JSON.stringify(SEED)); }
   let DB = load();
   function persist(){ try{ localStorage.setItem(DKEY, JSON.stringify(DB)); localStorage.setItem(DKEY+'_v', DVER); }catch(e){} }
@@ -69,17 +69,52 @@
   function parts(p){ return (p||'').split('/').filter(Boolean); }
   function getAt(p){ let cur=DB; for(const k of parts(p)){ if(cur==null) return null; cur=cur[k]; } return cur===undefined?null:cur; }
   function setAt(p,v){ const ps=parts(p); if(!ps.length) return; let cur=DB; for(let i=0;i<ps.length-1;i++){ if(cur[ps[i]]==null||typeof cur[ps[i]]!=='object') cur[ps[i]]={}; cur=cur[ps[i]]; } if(v===null) delete cur[ps[ps.length-1]]; else cur[ps[ps.length-1]]=v; }
-  function mkSnap(p){ const v=getAt(p); return { val:()=>v, exists:()=> v!==null&&v!==undefined, key: parts(p).pop()||null, forEach:(f)=>{ if(v&&typeof v==='object') Object.keys(v).forEach(k=>f(mkSnap((p?p+'/':'')+k))); } }; }
-  function fire(){ listeners.slice().forEach(l=>{ try{ l.cb(mkSnap(l.p)); }catch(e){ console.warn('demo listener error', e); } }); }
+  // Aplica una query (orderByChild/startAt/endAt/limitTo...) sobre el nodo hijo de p
+  function applyQuery(p,q){
+    const v=getAt(p); let arr=[];
+    if(v&&typeof v==='object') arr=Object.keys(v).map(k=>({key:k, value:v[k]}));
+    const keyOf=(e)=> q&&q.orderBy ? (e.value?e.value[q.orderBy]:undefined) : e.key;
+    arr.sort((a,b)=>{ const av=keyOf(a), bv=keyOf(b); return av>bv?1:av<bv?-1:0; });
+    if(q){
+      if(q.startAt!==undefined) arr=arr.filter(e=>keyOf(e)>=q.startAt);
+      if(q.endAt!==undefined) arr=arr.filter(e=>keyOf(e)<=q.endAt);
+      if(q.limitToLast!==undefined) arr=arr.slice(-q.limitToLast);
+      if(q.limitToFirst!==undefined) arr=arr.slice(0,q.limitToFirst);
+    }
+    return arr;
+  }
+  function mkSnap(p,q){
+    if(q){
+      const arr=applyQuery(p,q);
+      return {
+        exists:()=>arr.length>0,
+        key: parts(p).pop()||null,
+        val:()=>{ if(!arr.length) return null; const o={}; arr.forEach(e=>o[e.key]=e.value); return o; },
+        forEach:(f)=>{ for(const e of arr){ const r=f({key:e.key, val:()=>e.value, exists:()=>e.value!=null}); if(r===true) break; } }
+      };
+    }
+    const v=getAt(p);
+    return { val:()=>v, exists:()=> v!==null&&v!==undefined, key: parts(p).pop()||null, forEach:(f)=>{ if(v&&typeof v==='object') Object.keys(v).forEach(k=>f(mkSnap((p?p+'/':'')+k))); } };
+  }
+  function fire(){ listeners.slice().forEach(l=>{ try{ l.cb(mkSnap(l.p,l.q)); }catch(e){ console.warn('demo listener error', e); } }); }
   let pc=1;
-  function ref(p){ p=p||''; return {
+  function ref(p,q){ p=p||''; q=q||null;
+    function withQ(x){ return ref(p, Object.assign({}, q, x)); }
+    return {
     key: parts(p).pop()||null,
-    on:function(e,cb){ listeners.push({p:p,cb:cb}); Promise.resolve().then(function(){ cb(mkSnap(p)); }); return cb; },
-    once:function(e){ return Promise.resolve(mkSnap(p)); },
+    orderByChild:function(f){ return withQ({orderBy:f}); },
+    orderByKey:function(){ return withQ({orderBy:null}); },
+    startAt:function(v){ return withQ({startAt:v}); },
+    endAt:function(v){ return withQ({endAt:v}); },
+    limitToLast:function(n){ return withQ({limitToLast:n}); },
+    limitToFirst:function(n){ return withQ({limitToFirst:n}); },
+    on:function(e,cb){ listeners.push({p:p,q:q,cb:cb}); Promise.resolve().then(function(){ cb(mkSnap(p,q)); }); return cb; },
+    once:function(e){ return Promise.resolve(mkSnap(p,q)); },
     set:function(v){ setAt(p,v); persist(); fire(); return Promise.resolve(); },
     update:function(o){ Object.keys(o).forEach(function(k){ setAt(p?p+'/'+k:k, o[k]); }); persist(); fire(); return Promise.resolve(); },
     remove:function(){ setAt(p,null); persist(); fire(); return Promise.resolve(); },
-    push:function(){ const k='demo'+(pc++); const r=ref((p?p+'/':'')+k); r.key=k; return r; }
+    transaction:function(fn){ const res=fn(getAt(p)); if(res!==undefined){ setAt(p,res); persist(); fire(); } return Promise.resolve({committed:res!==undefined, snapshot:mkSnap(p)}); },
+    push:function(v){ const k='d'+(pc++)+Date.now().toString(36); const cp=(p?p+'/':'')+k; if(v!==undefined){ setAt(cp,v); persist(); fire(); } const r=ref(cp); r.key=k; return r; }
   };}
   // Sincronización en vivo entre pestañas: cuando otra pestaña escribe, recargo y re-renderizo
   window.addEventListener('storage', function(e){ if(e.key===DKEY && e.newValue){ try{ DB = JSON.parse(e.newValue); fire(); }catch(err){} } });
