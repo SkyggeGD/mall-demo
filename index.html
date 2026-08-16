@@ -6,11 +6,11 @@
 <title>Logística de Mall — GTA Hub RP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<!-- ===== MODO DEMO: Firebase SIMULADO en memoria con datos de ejemplo (para capturas). No usa internet ni login. NO subir este archivo al hosting real. ===== -->
+<!-- ===== MODO DEMO: Firebase SIMULADO (memoria + localStorage) con datos de ejemplo. Persiste al recargar y sincroniza entre pestañas. Sin login ni internet. Este archivo ES la demo pública. ===== -->
 <script>
 (function(){
   const now = Date.now();
-  const DB = {
+  const SEED = {
     users: { demo: {username:'Marto', role:'owner', createdAt:1} },
     siteConfig: {
       title: 'FR Service Elite — Logística del Mall',
@@ -59,6 +59,12 @@
       }
     }
   };
+  // ===== Persistencia (localStorage) + sincronización entre pestañas =====
+  const DKEY='mallDemoDB', DVER='2026-08-16b';
+  function load(){ try{ const raw=localStorage.getItem(DKEY); if(raw && localStorage.getItem(DKEY+'_v')===DVER) return JSON.parse(raw); }catch(e){} return JSON.parse(JSON.stringify(SEED)); }
+  let DB = load();
+  function persist(){ try{ localStorage.setItem(DKEY, JSON.stringify(DB)); localStorage.setItem(DKEY+'_v', DVER); }catch(e){} }
+  persist();
   const listeners = [];
   function parts(p){ return (p||'').split('/').filter(Boolean); }
   function getAt(p){ let cur=DB; for(const k of parts(p)){ if(cur==null) return null; cur=cur[k]; } return cur===undefined?null:cur; }
@@ -70,11 +76,24 @@
     key: parts(p).pop()||null,
     on:function(e,cb){ listeners.push({p:p,cb:cb}); Promise.resolve().then(function(){ cb(mkSnap(p)); }); return cb; },
     once:function(e){ return Promise.resolve(mkSnap(p)); },
-    set:function(v){ setAt(p,v); fire(); return Promise.resolve(); },
-    update:function(o){ Object.keys(o).forEach(function(k){ setAt(p?p+'/'+k:k, o[k]); }); fire(); return Promise.resolve(); },
-    remove:function(){ setAt(p,null); fire(); return Promise.resolve(); },
+    set:function(v){ setAt(p,v); persist(); fire(); return Promise.resolve(); },
+    update:function(o){ Object.keys(o).forEach(function(k){ setAt(p?p+'/'+k:k, o[k]); }); persist(); fire(); return Promise.resolve(); },
+    remove:function(){ setAt(p,null); persist(); fire(); return Promise.resolve(); },
     push:function(){ const k='demo'+(pc++); const r=ref((p?p+'/':'')+k); r.key=k; return r; }
   };}
+  // Sincronización en vivo entre pestañas: cuando otra pestaña escribe, recargo y re-renderizo
+  window.addEventListener('storage', function(e){ if(e.key===DKEY && e.newValue){ try{ DB = JSON.parse(e.newValue); fire(); }catch(err){} } });
+  // Botón chico para reiniciar la demo a los datos de ejemplo
+  window.addEventListener('DOMContentLoaded', function(){
+    var b=document.createElement('button');
+    b.textContent='🔄 Reiniciar demo';
+    b.title='Borra los cambios de esta demo y vuelve a los datos de ejemplo';
+    b.style.cssText='position:fixed;left:12px;bottom:12px;z-index:9999;background:#1e222c;color:#8b92a3;border:1px solid #2a2f3b;border-radius:8px;padding:6px 10px;font:12px sans-serif;cursor:pointer;opacity:.75';
+    b.onmouseenter=function(){ b.style.opacity='1'; };
+    b.onmouseleave=function(){ b.style.opacity='.75'; };
+    b.onclick=function(){ localStorage.removeItem(DKEY); localStorage.removeItem(DKEY+'_v'); location.reload(); };
+    document.body.appendChild(b);
+  });
   window.firebase = {
     initializeApp:function(){},
     database:function(){ return { ref: ref }; },
