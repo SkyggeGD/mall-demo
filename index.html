@@ -1,0 +1,3234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logística de Mall — GTA Hub RP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<!-- ===== MODO DEMO: Firebase SIMULADO en memoria con datos de ejemplo (para capturas). No usa internet ni login. NO subir este archivo al hosting real. ===== -->
+<script>
+(function(){
+  const now = Date.now();
+  const DB = {
+    users: { demo: {username:'Marto', role:'owner', createdAt:1} },
+    siteConfig: {
+      title: 'FR Service Elite — Logística del Mall',
+      subtitle: 'Panel privado para administrar el negocio: trabajos, caja, stock y ropa. Todos los dueños conectados en tiempo real.',
+      tips: 'Encadená trabajos de distinta categoría mientras esperás los cooldowns.\nAgrupá los que van "Fuera" en una misma vuelta para no perder tiempo.\nRevisá el espacio del maletero antes de arrancar una misión con vehículo.',
+      deudaMode: true,
+      hiddenSections: {}
+    },
+    jobPayOverrides: {},
+    timers: {
+      'ab5-0': {end: now + 45*60000},
+      'li6-0': {end: now + 20*60000},
+      'se2-0': {end: now + 8*60000},
+      'co6-0': {end: now + 300*60000},
+      'ad3-0': {end: now + 900*60000}
+    },
+    caja: {
+      owners: { A:{name:'Marto', createdAt:1}, B:{name:'Lucho', createdAt:2} },
+      actual: {amount: 2480000, updatedAt: now},
+      deudas: { A: -50000, B: 50000 },
+      abastecimiento: {
+        a1:{date:'2026-08-14', categoria:'Medicina', catId:'medicina', owner:'A', monto:180000, itemName:'Kit Médico', qty:24, notas:'', settled:false, timestamp:now-100000},
+        a2:{date:'2026-08-14', categoria:'Comida', catId:'comida', owner:'B', monto:60000, itemName:'Carne cruda', qty:100, notas:'', settled:false, timestamp:now-90000}
+      },
+      gastosExtra: {
+        g1:{date:'2026-08-13', nombre:'Muebles nuevos', owner:'A', monto:120000, settled:false, timestamp:now-200000}
+      },
+      roperos: { '1':{name:'Ropero 1',createdAt:1}, '2':{name:'Ropero 2',createdAt:2}, '3':{name:'Ropero 3',createdAt:3} },
+      ropa: {
+        r1:{date:'2026-08-14', desc:'Air Jordan 1 p2', owner:'A', precio:250000, ropero:'1', status:'Disponible', order:0, notas:'', timestamp:now-50000},
+        r2:{date:'2026-08-14', desc:'AF1 v2 blancas', owner:'A', precio:280000, ropero:'1', status:'Disponible', order:1, notas:'', timestamp:now-49000},
+        r3:{date:'2026-08-13', desc:'Camiseta Mundial ARG', owner:'B', precio:550000, ropero:'1', status:'Vendido', order:2, notas:'', timestamp:now-48000},
+        r4:{date:'2026-08-14', desc:'Jogger tech negro p3', owner:'A', precio:150000, ropero:'2', status:'Disponible', order:0, notas:'', timestamp:now-47000},
+        r5:{date:'2026-08-14', desc:'Cadena AK dorada p2', owner:'B', precio:435000, ropero:'2', status:'Disponible', order:1, notas:'', timestamp:now-46000},
+        r6:{date:'2026-08-13', desc:'Lentes antiflectantes p2', owner:'A', precio:385000, ropero:'3', status:'Disponible', order:0, notas:'', timestamp:now-45000},
+        r7:{date:'2026-08-13', desc:'Gorro Navideño', owner:'B', precio:65000, ropero:'3', status:'Vendido', order:1, notas:'', timestamp:now-44000},
+        r8:{date:'2026-08-14', desc:'Dunk low p4 morado', owner:'A', precio:130000, ropero:'3', status:'Disponible', order:2, notas:'', timestamp:now-43000}
+      },
+      medicina: {
+        analgesicos:{stock:40, ventaAcumulada:12400, compraAcumulada:0},
+        botiquin:{stock:5, ventaAcumulada:59700, compraAcumulada:0},
+        kitmedico:{stock:12, ventaAcumulada:31400, compraAcumulada:180000}
+      },
+      historial: {
+        h1:{date:'2026-08-13', cajaMonto:1850000, retiros:{A:{name:'Marto',monto:980000},B:{name:'Lucho',monto:870000}}, hechoPor:'Marto', timestamp: now-86400000}
+      }
+    }
+  };
+  const listeners = [];
+  function parts(p){ return (p||'').split('/').filter(Boolean); }
+  function getAt(p){ let cur=DB; for(const k of parts(p)){ if(cur==null) return null; cur=cur[k]; } return cur===undefined?null:cur; }
+  function setAt(p,v){ const ps=parts(p); if(!ps.length) return; let cur=DB; for(let i=0;i<ps.length-1;i++){ if(cur[ps[i]]==null||typeof cur[ps[i]]!=='object') cur[ps[i]]={}; cur=cur[ps[i]]; } if(v===null) delete cur[ps[ps.length-1]]; else cur[ps[ps.length-1]]=v; }
+  function mkSnap(p){ const v=getAt(p); return { val:()=>v, exists:()=> v!==null&&v!==undefined, key: parts(p).pop()||null, forEach:(f)=>{ if(v&&typeof v==='object') Object.keys(v).forEach(k=>f(mkSnap((p?p+'/':'')+k))); } }; }
+  function fire(){ listeners.slice().forEach(l=>{ try{ l.cb(mkSnap(l.p)); }catch(e){ console.warn('demo listener error', e); } }); }
+  let pc=1;
+  function ref(p){ p=p||''; return {
+    key: parts(p).pop()||null,
+    on:function(e,cb){ listeners.push({p:p,cb:cb}); Promise.resolve().then(function(){ cb(mkSnap(p)); }); return cb; },
+    once:function(e){ return Promise.resolve(mkSnap(p)); },
+    set:function(v){ setAt(p,v); fire(); return Promise.resolve(); },
+    update:function(o){ Object.keys(o).forEach(function(k){ setAt(p?p+'/'+k:k, o[k]); }); fire(); return Promise.resolve(); },
+    remove:function(){ setAt(p,null); fire(); return Promise.resolve(); },
+    push:function(){ const k='demo'+(pc++); const r=ref((p?p+'/':'')+k); r.key=k; return r; }
+  };}
+  window.firebase = {
+    initializeApp:function(){},
+    database:function(){ return { ref: ref }; },
+    auth:function(){ return {
+      onAuthStateChanged:function(cb){ setTimeout(function(){ cb({uid:'demo', email:'marto@mallgtahub.local'}); }, 60); },
+      signInWithEmailAndPassword:function(){ return Promise.resolve(); },
+      createUserWithEmailAndPassword:function(){ return Promise.resolve({user:{uid:'demo'}}); },
+      signOut:function(){ alert('Versión DEMO: el login está simulado.'); }
+    };}
+  };
+})();
+</script>
+<style>
+:root{
+  --bg:#0d0f14;
+  --surface:#171a21;
+  --surface-2:#1e222c;
+  --border:#2a2f3b;
+  --text:#eef1f6;
+  --text-dim:#8b92a3;
+  --text-dimmer:#5c6373;
+  --abastecimiento:#f0a44e;
+  --limpieza:#4fc3c9;
+  --seguridad:#e6564f;
+  --contabilidad:#63c17a;
+  --administracion:#a586e8;
+  --radius:14px;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(240,164,78,0.05), transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(165,134,232,0.06), transparent 40%),
+    var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+}
+.wrap{max-width:980px;margin:0 auto;padding:28px 18px 80px;}
+
+/* HERO */
+.hero{
+  background:linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:26px 24px;
+  margin-bottom:22px;
+}
+.eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--text-dimmer);
+  margin:0 0 6px;
+}
+.hero h1{
+  font-family:'Oswald',sans-serif;
+  font-weight:700;
+  font-size:clamp(24px,4vw,32px);
+  letter-spacing:.01em;
+  margin:0 0 6px;
+}
+.hero p.sub{color:var(--text-dim);font-size:14px;margin:0 0 20px;max-width:60ch;line-height:1.5;}
+.bell-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+  font-family:'Inter',sans-serif;font-size:13px;font-weight:500;
+  padding:9px 14px;border-radius:999px;cursor:pointer;margin-bottom:22px;
+  transition:border-color .15s;
+}
+.bell-btn:hover{border-color:var(--text-dimmer);}
+.bell-btn.on{border-color:var(--contabilidad);color:var(--contabilidad);}
+.nav-btn.nav-active{background:var(--administracion);border-color:var(--administracion);color:#0d0f14;}
+
+.config-fab{
+  position:fixed;top:16px;right:16px;z-index:950;
+  width:42px;height:42px;border-radius:50%;
+  background:var(--surface);border:1px solid var(--border);color:var(--text);
+  font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.4);
+}
+.config-fab:hover{border-color:var(--administracion);}
+.config-fab.nav-active{background:var(--administracion);border-color:var(--administracion);}
+
+.collapsible-header{cursor:pointer;display:flex;align-items:center;gap:8px;user-select:none;}
+.collapsible-header .arrow{display:inline-block;font-size:22px;transition:transform .18s ease;color:var(--text-dimmer);}
+.collapsible-header.collapsed .arrow{transform:rotate(-90deg);}
+.collapsible-content.collapsed{display:none;}
+.owner-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.owner-row input{
+  flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+  padding:9px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:13.5px;
+}
+.owner-row input:focus{outline:none;border-color:var(--administracion);}
+
+.status-bars{display:flex;flex-direction:column;gap:10px;}
+.status-row{display:grid;grid-template-columns:150px 1fr 74px;align-items:center;gap:12px;}
+.status-label{
+  font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;
+  display:flex;align-items:center;gap:8px;
+}
+.status-track{height:9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden;}
+.status-fill{height:100%;border-radius:999px;transition:width .4s ease;}
+.status-pct{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);text-align:right;}
+
+/* TABS */
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+.tab{
+  font-family:'Oswald',sans-serif;font-weight:600;font-size:13.5px;
+  padding:10px 16px;border-radius:999px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--border);color:var(--text-dim);
+  display:flex;align-items:center;gap:8px;
+  transition:all .15s;
+}
+.tab:hover{color:var(--text);}
+.tab.active{color:#0d0f14;border-color:transparent;}
+
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.filter-chip{
+  font-family:'JetBrains Mono',monospace;font-size:11.5px;
+  padding:7px 12px;border-radius:8px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--border);color:var(--text-dim);
+  transition:all .15s;
+}
+.filter-chip:hover{color:var(--text);}
+.filter-chip.active{background:var(--text);color:#0d0f14;border-color:var(--text);}
+.filter-note{font-size:12.5px;color:var(--text-dimmer);margin-bottom:16px;font-style:italic;}
+.cat-badge{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  padding:3px 8px;border-radius:6px;
+  border:1px solid var(--border);
+}
+
+/* CARDS */
+.job-grid{display:grid;grid-template-columns:1fr;gap:12px;}
+.job-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:18px 18px 16px;
+  border-left:3px solid var(--cat-color, var(--border));
+}
+.job-card.blocked{opacity:.55;}
+.job-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+.job-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:16.5px;margin:0 0 6px;}
+.job-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.tag{
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);
+  background:var(--surface-2);border:1px solid var(--border);
+  padding:3px 8px;border-radius:6px;white-space:nowrap;
+}
+.tag.aporte{color:var(--cat-color);border-color:color-mix(in srgb, var(--cat-color) 40%, var(--border));}
+.job-desc{font-size:13.5px;color:var(--text-dim);line-height:1.55;margin:0 0 8px;}
+.job-desc ol{margin:6px 0 0;padding-left:18px;}
+.job-desc li{margin-bottom:3px;}
+.req-line{font-size:12.5px;color:var(--text-dimmer);margin-bottom:12px;}
+.req-line b{color:var(--text-dim);font-weight:600;}
+.locked-note{
+  display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-dim);
+  background:var(--surface-2);border:1px dashed var(--border);border-radius:10px;padding:10px 12px;margin-top:8px;
+}
+
+/* TIMER SLOTS */
+.timer-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
+.timer-slot{
+  flex:1;min-width:150px;
+  background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
+  padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.timer-slot.ready{border-color:var(--cat-color);}
+.timer-slot .slot-label{font-size:11px;color:var(--text-dimmer);font-family:'JetBrains Mono',monospace;}
+.timer-slot .countdown{
+  font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;
+}
+.timer-slot.ready .countdown{color:var(--cat-color);}
+.slot-btn{
+  font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;
+  padding:7px 12px;border-radius:8px;border:none;cursor:pointer;
+  background:var(--cat-color);color:#0d0f14;
+}
+.slot-btn.reset{background:transparent;border:1px solid var(--border);color:var(--text-dim);}
+.slot-btn:active{transform:scale(.97);}
+
+/* TIPS */
+.tips{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px 22px;margin-top:28px;
+}
+.tips h2{font-family:'Oswald',sans-serif;font-size:16px;margin:0 0 10px;}
+.tips ul{margin:0;padding-left:20px;color:var(--text-dim);font-size:13.5px;line-height:1.7;}
+.tips li b{color:var(--text);}
+
+footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26px;font-family:'JetBrains Mono',monospace;}
+
+.toast-container{
+  position:fixed;top:16px;right:16px;z-index:999;
+  display:flex;flex-direction:column;gap:8px;
+  max-width:min(320px, calc(100vw - 32px));
+}
+.toast{
+  background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--contabilidad);
+  border-radius:10px;padding:12px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);
+  animation:toast-in .25s ease;
+  font-size:13px;
+}
+.toast.leaving{animation:toast-out .25s ease forwards;}
+.toast .toast-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;color:var(--contabilidad);margin:0 0 2px;}
+.toast .toast-body{color:var(--text-dim);margin:0;}
+@keyframes toast-in{from{opacity:0;transform:translateX(24px);}to{opacity:1;transform:translateX(0);}}
+@keyframes toast-out{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(24px);}}
+
+/* AUTH */
+.auth-overlay{
+  position:fixed;inset:0;background:rgba(5,6,9,0.9);
+  display:flex;align-items:center;justify-content:center;
+  z-index:1000;padding:20px;
+}
+.auth-box{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:26px 24px;width:100%;max-width:340px;
+}
+.auth-title{font-family:'Oswald',sans-serif;font-size:19px;margin:2px 0 16px;}
+.auth-tabs{display:flex;gap:6px;margin-bottom:16px;background:var(--surface-2);border-radius:10px;padding:4px;}
+.auth-tab{flex:1;text-align:center;padding:8px;border-radius:8px;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;color:var(--text-dim);cursor:pointer;}
+.auth-tab.active{background:var(--administracion);color:#0d0f14;}
+.auth-form{display:flex;flex-direction:column;gap:10px;}
+.auth-form input{
+  background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:13.5px;
+  width:100%;
+}
+.auth-form input:focus{outline:none;border-color:var(--administracion);}
+.auth-submit{
+  margin-top:4px;background:var(--administracion);color:#0d0f14;border:none;border-radius:8px;
+  padding:11px;font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;cursor:pointer;
+}
+.auth-submit:disabled{opacity:.6;cursor:default;}
+.auth-error{color:var(--seguridad);font-size:12.5px;margin:12px 0 0;min-height:14px;}
+.auth-hint{color:var(--text-dimmer);font-size:11.5px;margin-top:10px;line-height:1.5;}
+
+.user-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.user-bar .who{font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;}
+.role-badge{
+  font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:3px 8px;border-radius:999px;
+  border:1px solid var(--border);color:var(--text-dim);
+}
+.role-badge.owner{color:var(--administracion);border-color:var(--administracion);}
+
+/* ADMIN */
+.admin-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
+.admin-header h2{font-family:'Oswald',sans-serif;font-size:20px;margin:0;}
+.admin-subheading{font-family:'Oswald',sans-serif;font-size:15px;margin:26px 0 10px;color:var(--text-dim);}
+.admin-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.admin-table th{
+  text-align:left;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dimmer);
+  text-transform:uppercase;letter-spacing:.05em;padding:12px 14px;border-bottom:1px solid var(--border);
+}
+.admin-table td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle;}
+.admin-table tr:last-child td{border-bottom:none;}
+.admin-table .owed-amount{font-family:'JetBrains Mono',monospace;font-weight:700;}
+.admin-table .owed-amount.has-debt{color:var(--seguridad);}
+.pay-btn{
+  font-family:'Inter',sans-serif;font-weight:600;font-size:12px;
+  padding:7px 12px;border-radius:8px;border:none;cursor:pointer;
+  background:var(--contabilidad);color:#0d0f14;
+}
+.pay-btn:disabled{opacity:.35;cursor:default;}
+.admin-empty{color:var(--text-dim);font-size:13px;padding:16px;text-align:center;}
+.payments-list{display:flex;flex-direction:column;gap:6px;}
+.payment-row{
+  display:flex;justify-content:space-between;gap:10px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:10px 14px;font-size:13px;color:var(--text-dim);
+}
+.payment-row b{color:var(--text);}
+
+.cat-track-row{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:12px 14px;margin-bottom:8px;
+}
+.cat-track-label{font-family:'Oswald',sans-serif;font-weight:600;font-size:13.5px;min-width:150px;}
+.cat-track-value{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--text-dim);min-width:60px;}
+.cat-track-input{
+  background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;width:110px;
+}
+.cat-track-input:focus{outline:none;border-color:var(--administracion);}
+
+.dismiss-btn{
+  font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;
+  background:transparent;border:1px solid var(--border);color:var(--text-dimmer);
+  padding:5px 10px;border-radius:7px;cursor:pointer;
+}
+.dismiss-btn:hover{border-color:var(--seguridad);color:var(--seguridad);}
+.dismiss-all-btn{
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+  background:transparent;border:1px solid var(--border);color:var(--text-dim);
+  padding:7px 12px;border-radius:8px;cursor:pointer;margin-bottom:10px;
+}
+.dismiss-all-btn:hover{border-color:var(--seguridad);color:var(--seguridad);}
+
+/* CIERRE DE CAJA */
+.caja-form-row{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;
+}
+.caja-form-row input, .caja-form-row select{
+  background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+  padding:9px 11px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;
+}
+.caja-form-row input[type="text"], .caja-form-row input[type="number"]{flex:1;min-width:120px;}
+.caja-form-row input:focus, .caja-form-row select:focus{outline:none;border-color:var(--administracion);}
+.caja-totales{
+  display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;
+  font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text-dim);
+}
+.caja-totales b{color:var(--text);}
+.caja-resumen{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;margin-bottom:14px;
+}
+.caja-resumen .r-row{
+  display:flex;justify-content:space-between;padding:6px 0;font-size:13.5px;
+  border-bottom:1px solid var(--border);
+}
+.caja-resumen .r-row:last-child{border-bottom:none;}
+.caja-resumen .r-row.total{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;color:var(--contabilidad);}
+.small-del-btn{
+  font-family:'Inter',sans-serif;font-size:11px;color:var(--text-dimmer);
+  background:transparent;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;
+}
+.small-del-btn:hover{border-color:var(--seguridad);color:var(--seguridad);}
+.status-toggle-btn{
+  font-family:'Inter',sans-serif;font-size:11px;
+  background:transparent;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;color:var(--text-dim);
+}
+.status-toggle-btn:hover{border-color:var(--contabilidad);color:var(--contabilidad);}
+.med-qty-input{
+  width:64px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
+  padding:6px 8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12.5px;text-align:center;
+}
+.med-qty-input:focus{outline:none;border-color:var(--administracion);}
+.med-sell-input{border-color:var(--seguridad);}
+.med-buy-input{border-color:var(--contabilidad);}
+
+@media (max-width:520px){
+  .status-row{grid-template-columns:110px 1fr 54px;}
+  .admin-table{display:block;overflow-x:auto;}
+}
+</style>
+</head>
+<body>
+<button class="config-fab" id="configToggleBtn" style="display:none;" title="Configuración">⚙️</button>
+<div class="wrap">
+
+  <div class="hero">
+    <p class="eyebrow">GTA HUB · Roleplay</p>
+
+    <div class="user-bar" id="userBar" style="display:none;">
+      <span class="who">👤 <span id="userBarName"></span></span>
+      <span class="role-badge" id="userBarRole"></span>
+      <button class="bell-btn nav-btn" id="mallToggleBtn" style="display:none;">🏠 Estado del Mall</button>
+      <button class="bell-btn nav-btn" id="adminToggleBtn" style="display:none;">⚙️ Panel de Admin</button>
+      <button class="bell-btn nav-btn" id="cajaToggleBtn" style="display:none;">💰 Cierre de Caja</button>
+      <button class="bell-btn nav-btn" id="ventasToggleBtn" style="display:none;">🛒 Historial de ventas</button>
+      <button class="bell-btn" id="logoutBtn">Cerrar sesión</button>
+    </div>
+
+    <div id="heroExpanded">
+      <h1 id="siteTitle">Manual del Mall — Estado de la Propiedad</h1>
+      <p class="sub" id="siteSubtitle">Guía de trabajos por categoría. Marcá "Ya lo hice" en cada tarea para arrancar su cooldown — cuando esté lista, te avisamos con sonido y notificación.</p>
+
+      <button class="bell-btn" id="bellBtn">🔔 Activar notificaciones</button>
+
+      <div class="status-bars" id="statusBars"></div>
+    </div>
+  </div>
+
+  <div id="mainView">
+    <div class="tabs" id="tabs"></div>
+    <div class="filters" id="filters"></div>
+    <div class="filters" id="statusFilters"></div>
+    <div class="filter-note" id="filterNote"></div>
+    <div class="job-grid" id="jobGrid"></div>
+
+    <div class="tips">
+      <h2>Consejos para novatos</h2>
+      <ul id="tipsList"></ul>
+    </div>
+  </div>
+
+  <div id="configView" style="display:none;">
+    <div class="admin-header">
+      <h2>⚙️ Configuración</h2>
+    </div>
+    <p class="sub" style="margin-bottom:16px;">Solo vos y otros dueños pueden ver y tocar esto.</p>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-textos"><span class="arrow">▾</span> Título y descripción</h3>
+    <div class="collapsible-content" id="cfg-sec-textos">
+      <div class="caja-form-row">
+        <input type="text" id="cfgTitle" placeholder="Título principal">
+      </div>
+      <div class="caja-form-row">
+        <input type="text" id="cfgSubtitle" placeholder="Descripción debajo del título">
+      </div>
+      <div class="caja-form-row">
+        <button class="pay-btn" id="saveCfgTextosBtn">Guardar título y descripción</button>
+      </div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-precios"><span class="arrow">▾</span> Precio de cada oficio</h3>
+    <div class="collapsible-content" id="cfg-sec-precios">
+      <div id="cfgJobsWrap"></div>
+      <div class="caja-form-row">
+        <button class="pay-btn" id="saveCfgJobsBtn">Guardar precios</button>
+      </div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-consejos"><span class="arrow">▾</span> Consejos para novatos</h3>
+    <div class="collapsible-content" id="cfg-sec-consejos">
+      <p class="sub" style="margin-bottom:10px;">Un consejo por línea.</p>
+      <textarea id="cfgTips" rows="6" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:13.5px;"></textarea>
+      <div class="caja-form-row" style="margin-top:10px;">
+        <button class="pay-btn" id="saveCfgTipsBtn">Guardar consejos</button>
+      </div>
+    </div>
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-secciones"><span class="arrow">▾</span> Secciones opcionales (preferencia personal)</h3>
+    <div class="collapsible-content" id="cfg-sec-secciones">
+      <p class="sub" style="margin-bottom:10px;">Los datos se guardan siempre. Esto solo controla si el botón aparece en TU barra de navegación — cada dueño lo configura para sí mismo, no afecta a los demás.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;">
+        <input type="checkbox" id="cfgVentasEnabled" style="width:16px;height:16px;">
+        Mostrarme "🛒 Historial de ventas" en mi barra de navegación
+      </label>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-cajasecciones"><span class="arrow">▾</span> Secciones de Cierre de Caja (general, para todos los dueños)</h3>
+    <div class="collapsible-content" id="cfg-sec-cajasecciones">
+      <p class="sub" style="margin-bottom:10px;">Esto no es personal — afecta a todos los dueños por igual. Los datos se guardan siempre, esto solo oculta la sección del todo (no es lo mismo que colapsarla con la flecha).</p>
+      <div id="cfgSectionsWrap"></div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-reparto"><span class="arrow">▾</span> Reparto: deuda en vez de negativo (general)</h3>
+    <div class="collapsible-content" id="cfg-sec-reparto">
+      <p class="sub" style="margin-bottom:10px;">Cuando un dueño invirtió más, otro puede quedar en negativo para retirar. Con esto activado, en vez de mostrar negativo, ese faltante se guarda como <b>deuda</b> y se descuenta automáticamente en el próximo cierre de caja. Afecta a todos los dueños por igual.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;">
+        <input type="checkbox" id="cfgDeudaMode" style="width:16px;height:16px;">
+        Guardar el negativo como deuda para el próximo cierre
+      </label>
+    </div>
+  </div>
+
+  <div id="ventasView" style="display:none;">
+    <div class="admin-header">
+      <h2>🛒 Historial de ventas</h2>
+    </div>
+    <p class="sub" style="margin-bottom:16px;">Por ahora solo registra ventas de ropa. Se guarda siempre, esté esta sección visible o no.</p>
+    <div class="caja-form-row">
+      <input type="text" id="ventasSearch" placeholder="Buscar prenda...">
+      <select id="ventasSort">
+        <option value="recent">Más reciente primero</option>
+        <option value="alphaAsc">Nombre (A-Z)</option>
+        <option value="alphaDesc">Nombre (Z-A)</option>
+        <option value="priceDesc">Precio (mayor a menor)</option>
+        <option value="priceAsc">Precio (menor a mayor)</option>
+      </select>
+    </div>
+    <div id="ventasListWrap"></div>
+  </div>
+
+  <div id="adminView" style="display:none;">
+    <div class="admin-header">
+      <h2>⚙️ Panel de Administración</h2>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-tabla"><span class="arrow">▾</span> Usuarios</h3>
+    <div class="collapsible-content" id="adm-sec-tabla">
+      <p class="sub" style="margin-bottom:16px;">Semana actual (arranca lunes 00:00, cierra domingo 24:00).</p>
+      <div id="adminTableWrap"></div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-semanal"><span class="arrow">▾</span> 📅 Historial de trabajos</h3>
+    <div class="collapsible-content" id="adm-sec-semanal">
+      <p class="sub" style="margin-bottom:12px;">Cada domingo a las 24:00, la semana que termina queda guardada acá antes de que el contador arranque de nuevo (se archiva la primera vez que un dueño entra al panel después de esa hora).</p>
+      <div id="weeklyHistoryWrap"></div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-estado"><span class="arrow">▾</span> 📊 Seguimiento de estado por categoría</h3>
+    <div class="collapsible-content" id="adm-sec-estado">
+      <p class="sub" style="margin-bottom:12px;">Cada tarea hecha suma su aporte a la categoría, y baja sola 4 puntos por hora. Si esto queda más alto que el estado real del juego, alguien marcó tareas sin hacerlas — corregilo a mano acá.</p>
+      <div id="categoryTrackingWrap"></div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-sospecha"><span class="arrow">▾</span> 🚩 Actividad sospechosa</h3>
+    <div class="collapsible-content" id="adm-sec-sospecha">
+      <p class="sub" style="margin-bottom:12px;">Se marcan acá (sin bloquear nada) los trabajos hechos a menos de 2 minutos de otro trabajo de la misma persona, o a menos de 3 minutos de que el puesto se haya desbloqueado (excepto en los que pagan $500, esos se hacen rápido).</p>
+      <div id="suspiciousActivityHeader"></div>
+      <div id="suspiciousActivity"></div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-pagos"><span class="arrow">▾</span> Historial de pagos</h3>
+    <div class="collapsible-content" id="adm-sec-pagos">
+      <div id="paymentsHistory"></div>
+    </div>
+  </div>
+
+  <div id="cajaView" style="display:none;">
+    <div class="admin-header">
+      <h2>💰 Cierre de Caja</h2>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="sec-nombres"><span class="arrow">▾</span> Dueños</h3>
+    <div class="collapsible-content" id="sec-nombres">
+      <div id="ownersFormWrap"></div>
+      <div class="caja-form-row">
+        <button class="dismiss-all-btn" id="addOwnerBtn">+ Agregar dueño</button>
+        <button class="pay-btn" id="saveOwnerNamesBtn">Guardar cambios</button>
+      </div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="sec-productos"><span class="arrow">▾</span> 🏪 Productos — stock y ventas</h3>
+    <div class="collapsible-content" id="sec-productos">
+      <p class="sub" style="margin-bottom:12px;">Registrá una compra de stock para cualquier categoría — se suma sola al ítem correspondiente y queda como deuda 50/50, igual que antes.</p>
+      <div class="caja-form-row">
+        <select id="abastCategoria"></select>
+        <select id="abastDueno"></select>
+        <select id="abastItemSelect"></select>
+        <input type="number" id="abastCantidad" placeholder="Cantidad" min="1">
+        <input type="text" id="abastNotas" placeholder="Notas (opcional)">
+        <button class="pay-btn" id="addAbastBtn">Agregar compra</button>
+      </div>
+      <div id="abastInversionPreview" class="caja-totales"></div>
+      <div id="abastTotales" class="caja-totales"></div>
+      <div id="abastTableWrap"></div>
+
+      <div id="productCategoriesWrap"></div>
+    </div>
+
+    <div id="block-ropa">
+      <h3 class="admin-subheading collapsible-header" data-target="sec-ropa"><span class="arrow">▾</span> 👕 Inventario de Ropa</h3>
+      <div class="collapsible-content" id="sec-ropa">
+        <div class="caja-form-row">
+          <input type="text" id="ropaDesc" placeholder="Descripción de la prenda">
+          <select id="ropaDueno"></select>
+          <select id="ropaRopero"></select>
+          <input type="number" id="ropaPrecio" placeholder="Precio venta $">
+          <input type="text" id="ropaNotas" placeholder="Notas (opcional)">
+          <button class="pay-btn" id="addRopaBtn">Agregar</button>
+        </div>
+        <div id="ropaTotales" class="caja-totales"></div>
+        <button class="dismiss-all-btn" id="addRoperoBtn" style="margin-bottom:10px;">+ Agregar ropero</button>
+        <div id="roperosWrap"></div>
+      </div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="sec-gastos"><span class="arrow">▾</span> 🛠️ Gastos extraordinarios</h3>
+    <div class="collapsible-content" id="sec-gastos">
+      <p class="sub" style="margin-bottom:12px;">Para compras grandes y puntuales (un vehículo, muebles, etc.). Funciona igual que Abastecimiento: si uno pone más, el otro le debe la mitad.</p>
+      <div class="caja-form-row">
+        <input type="text" id="gastoNombre" placeholder="Nombre del gasto">
+        <select id="gastoDueno"></select>
+        <input type="number" id="gastoMonto" placeholder="Monto $">
+        <button class="pay-btn" id="addGastoBtn">Agregar gasto</button>
+      </div>
+      <div id="gastosTotales" class="caja-totales"></div>
+      <div id="gastosTableWrap"></div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="sec-cajareg"><span class="arrow">▾</span> 💵 Caja registradora</h3>
+    <div class="collapsible-content" id="sec-cajareg">
+      <div class="caja-form-row">
+        <input type="number" id="cajaActualInput" placeholder="Monto actual en caja">
+        <button class="pay-btn" id="saveCajaBtn">Actualizar</button>
+      </div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="sec-reparto"><span class="arrow">▾</span> 📊 Reparto sugerido</h3>
+    <div class="collapsible-content" id="sec-reparto">
+      <p class="sub" style="margin-bottom:12px;">El ingreso pasivo se calcula solo: lo que queda en caja después de pagar la ropa, menos lo que ya se explica con ventas de medicina. Ese resto (pasivo + medicina) siempre se reparte 50/50. Abastecimiento y Gastos extraordinarios se ajustan aparte, como deudas 50/50.</p>
+      <div id="cajaResumen" class="caja-resumen"></div>
+      <button class="dismiss-all-btn" id="cerrarCajaBtn" style="border-color:var(--contabilidad);color:var(--contabilidad);">Registrar reparto y reiniciar</button>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="sec-historial"><span class="arrow">▾</span> Historial de repartos</h3>
+    <div class="collapsible-content" id="sec-historial">
+      <div id="cajaHistorial"></div>
+    </div>
+  </div>
+
+  <footer>Datos recopilados por la comunidad · Última actualización manual</footer>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <p class="eyebrow">GTA HUB · Mall</p>
+    <h2 class="auth-title">Ingresá a tu cuenta</h2>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tabLogin">Iniciar sesión</div>
+      <div class="auth-tab" id="tabSignup">Crear cuenta</div>
+    </div>
+
+    <div class="auth-form" id="loginForm">
+      <input type="text" id="loginUsername" placeholder="Usuario" autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password">
+      <button class="auth-submit" id="loginSubmit">Entrar</button>
+    </div>
+
+    <div class="auth-form" id="signupForm" style="display:none;">
+      <input type="text" id="signupUsername" placeholder="Elegí un usuario" autocomplete="username">
+      <input type="password" id="signupPassword" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="new-password">
+      <input type="password" id="signupPassword2" placeholder="Repetí la contraseña" autocomplete="new-password">
+      <button class="auth-submit" id="signupSubmit">Crear cuenta</button>
+      <p class="auth-hint">Vas a entrar como usuario común. Si sos parte del staff, pedile a un Dueño que te ascienda desde el Panel de Admin.</p>
+    </div>
+
+    <p class="auth-error" id="authError"></p>
+  </div>
+</div>
+
+<script>
+const CATS = [
+  {id:'abastecimiento', label:'Abastecimiento', emoji:'🚚', color:'var(--abastecimiento)', hex:'#f0a44e'},
+  {id:'limpieza', label:'Limpieza', emoji:'🧹', color:'var(--limpieza)', hex:'#4fc3c9'},
+  {id:'seguridad', label:'Seguridad', emoji:'🛡️', color:'var(--seguridad)', hex:'#e6564f'},
+  {id:'contabilidad', label:'Contabilidad', emoji:'🧾', color:'var(--contabilidad)', hex:'#63c17a'},
+  {id:'administracion', label:'Administración', emoji:'🏢', color:'var(--administracion)', hex:'#a586e8'},
+];
+
+const JOBS = {
+  abastecimiento:[
+    {id:'ab1', name:'Organización de inventario', recorrido:'Dentro → Dentro', cd:120, aporte:5, pay:1500, req:'Ninguno', desc:'Acercarse a los muebles y completar el minijuego de acomodar cajas.'},
+    {id:'ab2', name:'Abastecimiento administrativo', recorrido:'Fuera → Fuera', cd:180, aporte:12, pay:1500, req:'Ir en vehículo con mínimo 3 Kg libres en el maletero.', desc:['Iniciar la misión (marca un punto en el mapa)','Ir en vehículo y presionar E para recoger la caja','Volver al Mall — entrada principal, arriba','Sacar la caja del maletero y dejarla en el punto']},
+    {id:'ab3', name:'Abastecimiento de emergencia', recorrido:'Fuera → Fuera', cd:120, aporte:12, pay:1500, req:'Ninguno', desc:'Igual a Abastecimiento administrativo: recoger caja en vehículo y entregarla.'},
+    {id:'ab4', name:'Devolución al proveedor', recorrido:'Dentro → Fuera', cd:180, aporte:12, pay:2000, req:'Ninguno (la caja de 3 Kg se lleva en la mano, no hace falta vehículo).', desc:'Buscar una caja entre los muebles del Mall y llevarla al punto marcado en el mapa (suele quedar lejos).'},
+    {id:'ab5', name:'Abastecimiento diario', recorrido:'—', cd:120, aporte:8, pay:1000, req:'Profesión de Transportista + vehículo "Burrito".', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
+    {id:'ab6', name:'Abastecimiento semanal', recorrido:'—', cd:300, aporte:20, pay:1000, req:'Profesión de Transportista + vehículo "Burrito".', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
+    {id:'ab7', name:'Reparación de máquinas expendedoras', recorrido:'—', cd:180, aporte:9, pay:500, req:'Profesión de Mecánico.', desc:'Detalle exacto de cómo se hace: pendiente.'},
+  ],
+  limpieza:[
+    {id:'li1', name:'Limpieza particular', recorrido:'Dentro → Dentro', cd:120, aporte:6, pay:1000, req:'Ninguno', desc:'Ir limpiando los muebles.'},
+    {id:'li2', name:'Sacar basura', recorrido:'Dentro → Fuera', cd:120, aporte:15, pay:1500, req:'Ninguno', desc:'Rebuscar entre los muebles hasta encontrar la basura y sacarla al punto marcado en el mapa.'},
+    {id:'li3', name:'Control de plagas', recorrido:'Dentro → Dentro', cd:180, aporte:8, pay:1000, req:'Ninguno', desc:'Recorrer los muebles seleccionados matando insectos.'},
+    {id:'li4', name:'Limpieza general', recorrido:'Dentro → Dentro', cd:240, aporte:9, pay:1000, req:'Ninguno', desc:'Recorrer los muebles marcados, limpiándolos.'},
+    {id:'li5', name:'Limpieza profunda', recorrido:'Dentro → Dentro', cd:300, aporte:11, pay:1000, req:'Ninguno', desc:'Igual a Limpieza general.'},
+    {id:'li6', name:'Limpieza delegada', recorrido:'Dentro → Dentro', cd:240, aporte:20, pay:1000, req:'Pertenecer a una empresa de limpieza.', desc:'Igual a Limpieza profunda.', instances:2},
+    {id:'li7', name:'Servicio de fumigación', recorrido:'Dentro → Dentro', cd:120, aporte:7, pay:1000, req:'Pertenecer a una empresa de limpieza.', desc:'Igual a Control de plagas.', instances:2},
+  ],
+  seguridad:[
+    {id:'se1', name:'Expulsar alborotador', recorrido:'Dentro → Dentro', cd:60, aporte:10, pay:500, req:'Ninguno', desc:'Interactuar con un NPC (misión sencilla).'},
+    {id:'se2', name:'Ingreso de efectivo', recorrido:'Dentro → Fuera', cd:120, aporte:6, pay:1500, req:'Ninguno', desc:'Interactuar con la caja fuerte hasta obtener una bolsa de dinero, y llevarla al banco indicado en el mapa.', instances:2},
+    {id:'se3', name:'Revisión de seguridad', recorrido:'—', cd:60, aporte:8, pay:1000, req:'Pertenecer a una empresa de seguridad.', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
+    {id:'se4', name:'Transporte de valores', recorrido:'—', cd:120, aporte:12, pay:1500, req:'Pertenecer a una empresa de seguridad.', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
+    {id:'se5', name:'Depósito programado', recorrido:'—', cd:120, aporte:10, pay:1000, req:'Pertenecer a una empresa de seguridad.', desc:'Detalle exacto de cómo se hace: pendiente.'},
+    {id:'se6', name:'Reparación de máquinas registradoras', recorrido:'—', cd:120, aporte:4, pay:500, req:'Profesión de Mecánico.', desc:'Detalle exacto de cómo se hace: pendiente.'},
+  ],
+  contabilidad:[
+    {id:'co1', name:'Atender al cliente', recorrido:'Dentro → Dentro', cd:30, aporte:3, pay:500, req:'Ninguno', desc:'Interactuar con un NPC.'},
+    {id:'co2', name:'Cierre de caja', recorrido:'Dentro → Dentro', cd:180, aporte:5, pay:500, req:'Ninguno', desc:'Llenar la caja fuerte.'},
+    {id:'co3', name:'Reporte laboral', recorrido:'Dentro → Fuera', cd:240, aporte:15, pay:1500, req:'Ninguno', desc:'Hablar con un empleado y llevarlo a la oficina de empleo (queda cerca).'},
+    {id:'co4', name:'Pago de aseguranza', recorrido:'Fuera → Fuera', cd:300, aporte:17, pay:1000, req:'Ninguno', desc:'Acercarse a la oficina de Seguros de Vehículos.'},
+    {id:'co5', name:'Pago de arrendamiento', recorrido:'Fuera → Fuera', cd:480, aporte:30, pay:1000, req:'Ninguno', desc:'Acercarse a un banco cercano.'},
+    {id:'co6', name:'Pago de impuestos', recorrido:'Fuera → Fuera', cd:720, aporte:45, pay:1000, req:'Ninguno', desc:'Llevar unos papeles a un punto cercano.'},
+  ],
+  administracion:[
+    {id:'ad1', name:'Restauración de inmobiliario', recorrido:'Dentro → Dentro', cd:720, aporte:15, pay:1000, req:'Ninguno', desc:'Arreglar muebles en el lugar.'},
+    {id:'ad2', name:'Registro de sanidad', recorrido:'Fuera → Fuera', cd:1080, aporte:25, pay:1000, req:'Ninguno', desc:'Ir a un hospital.'},
+    {id:'ad3', name:'Registro de negocio', recorrido:'Fuera → Fuera', cd:1440, aporte:30, pay:1000, req:'Ninguno', desc:'Ir a un banco.'},
+    {id:'ad4a', name:'Identificación fiscal', recorrido:'Dentro → Fuera', cd:2160, aporte:50, pay:1500, req:'Ninguno', desc:'Buscar los papeles dentro del Mall y llevarlos a un punto marcado afuera.'},
+    {id:'ad4b', name:'Mantenimiento de sistemas', recorrido:'—', cd:120, aporte:10, pay:1500, req:'Pertenecer a una empresa de limpieza.', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
+    {id:'ad4c', name:'Inspección de telecomunicaciones', recorrido:'—', blocked:'Requiere el oficio especial "WeazelNews" — poco frecuente, puede no estar disponible en el server. Cooldown: cada 5 días. Aporte: sin confirmar.'},
+    {id:'ad4d', name:'Inspección general', recorrido:'—', blocked:'Requiere una inspección del gobierno (staff del server), no la puede iniciar un jugador. Cooldown: cada 5 días. Aporte: sin confirmar.'},
+    {id:'ad5', name:'Certificados de equipos electrónicos', recorrido:'—', cd:120, aporte:5, pay:500, req:'Profesión de Mecánico.', desc:'Detalle exacto de cómo se hace: pendiente.'},
+  ],
+};
+
+// Paga por trabajo — por defecto $0 hasta que se cargue el valor real de cada uno
+Object.values(JOBS).forEach(list => list.forEach(job=>{
+  if(!job.blocked && typeof job.pay !== 'number') job.pay = 0;
+}));
+
+// ====== CONFIGURACIÓN DE FIREBASE ======
+// Reemplazá estos valores por los de TU proyecto de Firebase
+// (Project Settings > General > Your apps > SDK setup and configuration)
+const firebaseConfig = {
+  apiKey: "AIzaSyCwblgLPjFcyaCD-MtvDLX6YkaxXQLH8X8",
+  authDomain: "fr-service-mall.firebaseapp.com",
+  databaseURL: "https://fr-service-mall-default-rtdb.firebaseio.com",
+  projectId: "fr-service-mall",
+  storageBucket: "fr-service-mall.firebasestorage.app",
+  messagingSenderId: "354874327066",
+  appId: "1:354874327066:web:a0a1d9d75231696ed1d1a3"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+// ========================================
+
+// ====== CONFIGURACIÓN EDITABLE (título, descripción, precios, consejos) ======
+const DEFAULT_TIPS = [
+  'Encadená trabajos: mientras esperás el cooldown de uno, hacé otro de distinta categoría — así el estado general sube parejo.',
+  'Fijate el "Recorrido": los que van "Dentro → Fuera" o "Fuera → Fuera" te van a hacer perder más tiempo, organizalos junto con otras vueltas afuera.',
+  'Algunos piden vehículo con espacio libre en el maletero — asegurate antes de arrancar la misión para no perder el viaje.',
+  'Los trabajos bloqueados (🔒) requieren una profesión o empresa que todavía no tenés — quedan anotados para cuando los consigas.',
+  'Esta página no guarda los tiempos si cerrás la pestaña — dejala abierta en segundo plano para que las alarmas te avisen.'
+];
+const DEFAULT_TITLE = 'Manual del Mall — Estado de la Propiedad';
+const DEFAULT_SUBTITLE = 'Guía de trabajos por categoría. Marcá "Ya lo hice" en cada tarea para arrancar su cooldown — cuando esté lista, te avisamos con sonido y notificación.';
+
+let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n'), hiddenSections: {}, deudaMode: false};
+let jobPayOverrides = {};
+let configStarted = false;
+let ventasEnabledForMe = true; // preferencia personal, no global
+
+function getJobPay(job){
+  const override = jobPayOverrides[job.id];
+  return (typeof override === 'number') ? override : (job.pay || 0);
+}
+
+function applySiteConfigToPage(){
+  document.getElementById('siteTitle').textContent = siteConfig.title || DEFAULT_TITLE;
+  document.getElementById('siteSubtitle').textContent = siteConfig.subtitle || DEFAULT_SUBTITLE;
+  const tipsArr = (siteConfig.tips || DEFAULT_TIPS.join('\n')).split('\n').map(t=>t.trim()).filter(Boolean);
+  document.getElementById('tipsList').innerHTML = tipsArr.map(t=>`<li>${t}</li>`).join('');
+}
+
+let publicConfigStarted = false;
+function startPublicConfigListeners(){
+  if(publicConfigStarted) return;
+  publicConfigStarted = true;
+
+  db.ref('siteConfig').on('value', snap=>{
+    const v = snap.val();
+    siteConfig = {
+      title: (v && v.title) || DEFAULT_TITLE,
+      subtitle: (v && v.subtitle) || DEFAULT_SUBTITLE,
+      tips: (v && v.tips) || DEFAULT_TIPS.join('\n'),
+      hiddenSections: (v && v.hiddenSections) || {},
+      deudaMode: !!(v && v.deudaMode)
+    };
+    applySiteConfigToPage();
+    applyCajaSectionVisibility();
+    const cfgTitleInput = document.getElementById('cfgTitle');
+    if(cfgTitleInput){
+      cfgTitleInput.value = siteConfig.title;
+      document.getElementById('cfgSubtitle').value = siteConfig.subtitle;
+      document.getElementById('cfgTips').value = siteConfig.tips;
+      const deudaCb = document.getElementById('cfgDeudaMode');
+      if(deudaCb) deudaCb.checked = siteConfig.deudaMode;
+      renderCfgSectionsList();
+    }
+    renderCajaResumen(); // el modo deuda cambia cómo se muestra el reparto
+  });
+
+  db.ref('jobPayOverrides').on('value', snap=>{
+    jobPayOverrides = snap.val() || {};
+    if(appStarted) renderJobs();
+  });
+}
+
+// Lista de secciones de Cierre de Caja que se pueden ocultar (categorías de producto + Ropa)
+function toggleableSections(){
+  return [...DISPLAY_SECTIONS.map(s=>({id:s.id, label:`${s.emoji} ${s.name}`})), {id:'ropa', label:'👕 Ropa'}];
+}
+
+function applyCajaSectionVisibility(){
+  const hidden = siteConfig.hiddenSections || {};
+  DISPLAY_SECTIONS.forEach(section=>{
+    const block = document.getElementById('prod-block-'+section.id);
+    if(block) block.style.display = hidden[section.id] ? 'none' : '';
+  });
+  const ropaBlock = document.getElementById('block-ropa');
+  if(ropaBlock) ropaBlock.style.display = hidden['ropa'] ? 'none' : '';
+}
+
+function renderCfgSectionsList(){
+  const box = document.getElementById('cfgSectionsWrap');
+  if(!box) return;
+  const hidden = siteConfig.hiddenSections || {};
+  box.innerHTML = toggleableSections().map(t=>`
+    <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;margin-bottom:8px;">
+      <input type="checkbox" class="cfg-section-toggle" data-section="${t.id}" style="width:16px;height:16px;" ${hidden[t.id] ? '' : 'checked'}>
+      Mostrar sección "${t.label}"
+    </label>
+  `).join('');
+  box.querySelectorAll('.cfg-section-toggle').forEach(cb=>{
+    cb.addEventListener('change', async ()=>{
+      await db.ref('siteConfig/hiddenSections/'+cb.dataset.section).set(!cb.checked);
+      showToast(cb.checked ? 'Sección visible para todos los dueños.' : 'Sección oculta para todos los dueños.', '💾 Guardado');
+    });
+  });
+}
+
+function startPersonalPrefsListeners(){
+  if(!currentUser) return;
+  db.ref('uiPrefs/'+currentUser.uid+'/ventasEnabled').on('value', snap=>{
+    ventasEnabledForMe = (snap.val() === null) ? true : !!snap.val();
+    const checkbox = document.getElementById('cfgVentasEnabled');
+    if(checkbox) checkbox.checked = ventasEnabledForMe;
+    updateVentasNavVisibility();
+  });
+}
+
+function updateVentasNavVisibility(){
+  const btn = document.getElementById('ventasToggleBtn');
+  const show = !!(currentUser && currentUser.role==='owner' && ventasEnabledForMe);
+  btn.style.display = show ? 'inline-flex' : 'none';
+  if(!show && btn.classList.contains('nav-active')) setSection('mall');
+}
+
+document.getElementById('cfgVentasEnabled').addEventListener('change', async (e)=>{
+  if(!currentUser) return;
+  await db.ref('uiPrefs/'+currentUser.uid+'/ventasEnabled').set(e.target.checked);
+  showToast(e.target.checked ? 'Vas a ver el botón en tu barra.' : 'Dejaste de verlo (solo para vos, no afecta a los demás).', '💾 Guardado');
+});
+
+document.getElementById('cfgDeudaMode').addEventListener('change', async (e)=>{
+  await db.ref('siteConfig/deudaMode').set(e.target.checked);
+  showToast(e.target.checked ? 'Modo deuda activado (para todos los dueños).' : 'Modo deuda desactivado.', '💾 Guardado');
+});
+
+function startConfigListeners(){
+  if(configStarted) return;
+  configStarted = true;
+  renderCfgJobsList();
+  renderCfgSectionsList();
+}
+
+// ====== HISTORIAL DE VENTAS ======
+let ventasStarted = false;
+let ventasRopaCache = {};
+
+function startVentasListeners(){
+  if(ventasStarted) return;
+  ventasStarted = true;
+
+  db.ref('caja/owners').on('value', snap=>{
+    ownersCache = snap.val() || {};
+    renderVentasList();
+  });
+
+  db.ref('caja/ropa').on('value', snap=>{
+    ventasRopaCache = snap.val() || {};
+    renderVentasList();
+  });
+
+  document.getElementById('ventasSearch').addEventListener('input', renderVentasList);
+  document.getElementById('ventasSort').addEventListener('change', renderVentasList);
+}
+
+function renderVentasList(){
+  const box = document.getElementById('ventasListWrap');
+  if(!box) return;
+  const query = (document.getElementById('ventasSearch').value || '').toLowerCase().trim();
+  const sortMode = document.getElementById('ventasSort').value;
+
+  let items = Object.entries(ventasRopaCache)
+    .filter(([k,v]) => v.status==='Vendido' || v.status==='Cobrado')
+    .map(([k,v]) => ({key:k, ...v}));
+  if(query) items = items.filter(v => (v.desc||'').toLowerCase().includes(query));
+
+  items = items.slice();
+  if(sortMode==='alphaAsc') items.sort((a,b)=> a.desc.localeCompare(b.desc));
+  else if(sortMode==='alphaDesc') items.sort((a,b)=> b.desc.localeCompare(a.desc));
+  else if(sortMode==='priceDesc') items.sort((a,b)=> b.precio - a.precio);
+  else if(sortMode==='priceAsc') items.sort((a,b)=> a.precio - b.precio);
+  else items.sort((a,b)=> (b.timestamp||0) - (a.timestamp||0));
+
+  if(items.length===0){
+    box.innerHTML = `<div class="admin-empty">${query ? 'Ninguna venta coincide con la búsqueda.' : 'Todavía no hay ventas registradas.'}</div>`;
+    return;
+  }
+
+  const rows = items.map(v=>`
+    <tr>
+      <td>${v.desc}</td>
+      <td>${ownerName(v.owner)}</td>
+      <td>${fmtMoneyCaja(v.precio)}</td>
+      <td>${v.status}</td>
+      <td>${v.date}</td>
+      <td><button class="small-del-btn" data-key="${v.key}">Borrar</button></td>
+    </tr>
+  `).join('');
+  box.innerHTML = `
+    <table class="admin-table">
+      <thead><tr><th>Prenda</th><th>Dueño</th><th>Precio</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="sub" style="margin-top:10px;">${items.length} venta${items.length===1?'':'s'} encontrada${items.length===1?'':'s'}.</p>
+  `;
+
+  box.querySelectorAll('.small-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm('¿Borrar esta venta del historial?')) return;
+      db.ref('caja/ropa/'+btn.dataset.key).remove();
+      showToast('Venta borrada.', '🗑 Borrado');
+    });
+  });
+}
+
+function renderCfgJobsList(){
+  const box = document.getElementById('cfgJobsWrap');
+  let html = '';
+  CATS.forEach(cat=>{
+    const jobs = JOBS[cat.id].filter(j=>!j.blocked);
+    if(jobs.length===0) return;
+    html += `<h4 style="font-family:'Oswald',sans-serif;font-size:14px;margin:14px 0 8px;color:${cat.hex};">${cat.emoji} ${cat.label}</h4>`;
+    jobs.forEach(job=>{
+      html += `
+        <div class="caja-form-row" style="margin-bottom:6px;">
+          <span style="flex:2;font-size:13px;">${job.name}${job.instances===2?' (x2)':''}</span>
+          <input type="number" min="0" class="med-qty-input" style="width:110px;" data-jobid="${job.id}" value="${getJobPay(job)}">
+        </div>
+      `;
+    });
+  });
+  box.innerHTML = html;
+}
+
+document.getElementById('saveCfgTextosBtn').addEventListener('click', async ()=>{
+  const title = document.getElementById('cfgTitle').value.trim() || DEFAULT_TITLE;
+  const subtitle = document.getElementById('cfgSubtitle').value.trim() || DEFAULT_SUBTITLE;
+  await db.ref('siteConfig').update({title, subtitle});
+  showToast('Título y descripción actualizados.', '💾 Guardado');
+});
+
+document.getElementById('saveCfgTipsBtn').addEventListener('click', async ()=>{
+  const tips = document.getElementById('cfgTips').value;
+  await db.ref('siteConfig').update({tips});
+  showToast('Consejos para novatos actualizados.', '💾 Guardado');
+});
+
+document.getElementById('saveCfgJobsBtn').addEventListener('click', async ()=>{
+  const updates = {};
+  document.querySelectorAll('#cfgJobsWrap input[data-jobid]').forEach(input=>{
+    const jobId = input.dataset.jobid;
+    const val = Number(input.value);
+    if(!isNaN(val) && val>=0){
+      updates['jobPayOverrides/'+jobId] = val;
+    }
+  });
+  await db.ref().update(updates);
+  showToast('Precios de los oficios actualizados.', '💾 Guardado');
+});
+
+let activeCat = 'abastecimiento';
+const RECORRIDOS = ['Todos', 'Dentro', 'Fuera', 'Dentro → Fuera'];
+let activeRecorrido = 'Todos';
+const STATUS = ['Todos', 'Disponibles', 'En espera'];
+let activeStatus = 'Todos';
+// timers[slotKey] = endTimestamp (ms) | undefined — sincronizado desde Firebase
+let timers = {};
+let notifOn = false;
+
+function fmtCd(min){
+  if(min % 60 === 0) return (min/60)+'h';
+  return Math.floor(min/60)+'h '+(min%60)+'m';
+}
+function fmtCountdown(ms){
+  if(ms<=0) return 'Disponible';
+  const s = Math.ceil(ms/1000);
+  const h = String(Math.floor(s/3600)).padStart(2,'0');
+  const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const sec = String(s%60).padStart(2,'0');
+  return h+':'+m+':'+sec;
+}
+
+function beep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [0,0.18,0.36].forEach((t,i)=>{
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type='square';
+      o.frequency.value = i%2===0 ? 880 : 660;
+      g.gain.value = 0.05;
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime+t);
+      o.stop(ctx.currentTime+t+0.14);
+    });
+  }catch(e){}
+}
+
+function showToast(body, title){
+  const box = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<p class="toast-title">${title || '✅ Disponible'}</p><p class="toast-body">${body}</p>`;
+  box.appendChild(toast);
+  setTimeout(()=>{
+    toast.classList.add('leaving');
+    setTimeout(()=> toast.remove(), 250);
+  }, 5000);
+}
+
+function notify(jobName){
+  beep();
+  showToast(jobName);
+  if(notifOn && 'Notification' in window && Notification.permission === 'granted'){
+    new Notification('¡Trabajo disponible!', {body: jobName + ' ya se puede volver a hacer.'});
+  }
+}
+
+document.getElementById('bellBtn').addEventListener('click', ()=>{
+  if(!('Notification' in window)){ alert('Tu navegador no soporta notificaciones.'); return; }
+  Notification.requestPermission().then(p=>{
+    notifOn = (p === 'granted');
+    const btn = document.getElementById('bellBtn');
+    btn.classList.toggle('on', notifOn);
+    btn.textContent = notifOn ? '🔔 Notificaciones activadas' : '🔔 Activar notificaciones';
+  });
+});
+
+const ALL_TAB = {id:'todas', label:'Todas', emoji:'🗂️', hex:'#c7ccd6'};
+
+function renderTabs(){
+  const box = document.getElementById('tabs');
+  box.innerHTML = '';
+  [ALL_TAB, ...CATS].forEach(c=>{
+    const el = document.createElement('div');
+    el.className = 'tab' + (c.id===activeCat ? ' active' : '');
+    if(c.id===activeCat){ el.style.background = c.hex; }
+    el.innerHTML = `<span>${c.emoji}</span> ${c.label}`;
+    el.addEventListener('click', ()=>{ activeCat = c.id; renderTabs(); updateFilterNote(); renderJobs(); });
+    box.appendChild(el);
+  });
+}
+
+function updateFilterNote(){
+  const note = document.getElementById('filterNote');
+  const parts = [];
+  if(activeCat !== 'todas') parts.push(CATS.find(c=>c.id===activeCat).label);
+  if(activeRecorrido !== 'Todos') parts.push(`recorrido "${activeRecorrido}"`);
+  if(activeStatus !== 'Todos') parts.push(activeStatus.toLowerCase());
+  note.textContent = parts.length ? `Mostrando: ${parts.join(' + ')}` : '';
+}
+
+function renderFilters(){
+  const box = document.getElementById('filters');
+  box.innerHTML = '';
+  RECORRIDOS.forEach(r=>{
+    const chip = document.createElement('div');
+    chip.className = 'filter-chip' + (r===activeRecorrido ? ' active' : '');
+    chip.textContent = r;
+    chip.addEventListener('click', ()=>{ activeRecorrido = r; renderTabs(); renderFilters(); renderJobs(); });
+    box.appendChild(chip);
+  });
+  updateFilterNote();
+}
+
+function renderStatusChips(){
+  const box = document.getElementById('statusFilters');
+  box.innerHTML = '';
+  const labels = {'Todos':'Todos', 'Disponibles':'🟢 Disponibles', 'En espera':'⏳ En espera'};
+  STATUS.forEach(s=>{
+    const chip = document.createElement('div');
+    chip.className = 'filter-chip' + (s===activeStatus ? ' active' : '');
+    chip.textContent = labels[s];
+    chip.addEventListener('click', ()=>{ activeStatus = s; renderStatusChips(); updateFilterNote(); applyStatusFilter(); });
+    box.appendChild(chip);
+  });
+}
+
+function slotKey(jobId, idx){ return jobId+'-'+idx; }
+
+function matchesRecorrido(jobRecorrido, filtro){
+  if(filtro === 'Dentro') return jobRecorrido === 'Dentro → Dentro';
+  if(filtro === 'Fuera') return jobRecorrido === 'Fuera → Fuera';
+  return jobRecorrido === filtro;
+}
+
+function getVisibleJobs(){
+  const catsToShow = activeCat === 'todas' ? CATS : CATS.filter(c=>c.id===activeCat);
+  const list = [];
+  catsToShow.forEach(cat=>{
+    JOBS[cat.id].forEach(job=>{
+      if(activeRecorrido === 'Todos' || matchesRecorrido(job.recorrido, activeRecorrido)){
+        list.push({cat, job});
+      }
+    });
+  });
+  return list;
+}
+
+function renderJobs(){
+  const grid = document.getElementById('jobGrid');
+  grid.innerHTML = '';
+  const crossMode = activeCat === 'todas';
+  const items = getVisibleJobs();
+
+  if(items.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'locked-note';
+    empty.textContent = 'No hay trabajos disponibles con este recorrido todavía.';
+    grid.appendChild(empty);
+    return;
+  }
+
+  items.forEach(({cat, job})=>{
+    const card = document.createElement('div');
+    card.className = 'job-card' + (job.blocked ? ' blocked' : '');
+    card.style.setProperty('--cat-color', cat.hex);
+
+    let html = `<div class="job-top"><div>
+      <p class="job-name">${job.name}</p>
+      <div class="job-tags">
+        ${crossMode ? `<span class="tag cat-badge" style="color:${cat.hex};border-color:${cat.hex}66">${cat.emoji} ${cat.label}</span>` : ''}
+        <span class="tag">${job.recorrido}</span>
+        ${job.cd ? `<span class="tag">⏱ cada ${fmtCd(job.cd)}</span>` : ''}
+        ${job.aporte ? `<span class="tag aporte">+${job.aporte}%</span>` : ''}
+        ${getJobPay(job) ? `<span class="tag pay">$${getJobPay(job).toLocaleString('es-AR')}</span>` : ''}
+        ${job.instances===2 ? `<span class="tag">x2 instancias</span>` : ''}
+      </div>
+    </div></div>`;
+
+    if(job.desc){
+      html += `<div class="job-desc">`;
+      if(Array.isArray(job.desc)){
+        html += `<ol>${job.desc.map(s=>`<li>${s}</li>`).join('')}</ol>`;
+      } else {
+        html += job.desc;
+      }
+      html += `</div>`;
+    }
+    if(job.req){
+      html += `<div class="req-line"><b>Requisitos:</b> ${job.req}</div>`;
+    }
+    card.innerHTML = html;
+
+    if(job.blocked){
+      const note = document.createElement('div');
+      note.className = 'locked-note';
+      note.innerHTML = `🔒 ${job.blocked}`;
+      card.appendChild(note);
+    } else {
+      const row = document.createElement('div');
+      row.className = 'timer-row';
+      const n = job.instances || 1;
+      for(let i=0;i<n;i++){
+        const key = slotKey(job.id, i);
+        const slot = document.createElement('div');
+        slot.className = 'timer-slot';
+        slot.dataset.key = key;
+        slot.dataset.cd = job.cd;
+        slot.dataset.jobname = job.name;
+        slot.innerHTML = `
+          <div>
+            ${n>1 ? `<div class="slot-label">TURNO ${i+1}</div>` : ''}
+            <div class="countdown">Disponible</div>
+          </div>
+          <button class="slot-btn">Ya lo hice</button>
+        `;
+        const btn = slot.querySelector('.slot-btn');
+        btn.addEventListener('click', async ()=>{
+          if(!currentUser) return;
+          const now = Date.now();
+          const rec = timers[key];
+          const stillRunning = rec && rec.end > now;
+
+          if(stillRunning){
+            // Deshacer: revierte el timer, el pago y el registro (si corresponde)
+            await db.ref('timers/'+key).remove();
+            if(rec.uid && rec.pay){
+              db.ref('balances/'+rec.uid).transaction(bal=>{
+                bal = bal || {owed:0, totalEarned:0};
+                bal.owed = (bal.owed||0) - rec.pay;
+                bal.totalEarned = (bal.totalEarned||0) - rec.pay;
+                return bal;
+              });
+            }
+            if(rec.logKey) db.ref('logs/'+rec.logKey).remove();
+          } else {
+            const pay = getJobPay(job);
+            const reasons = [];
+
+            // Regla 1: menos de 2 minutos desde su último trabajo marcado (cualquiera)
+            // (tampoco aplica a los trabajos que pagan $500, esos se hacen rápido de verdad)
+            if(pay !== 500){
+              const lastActionSnap = await db.ref('lastAction/'+currentUser.uid).once('value');
+              const lastActionTs = lastActionSnap.val() || 0;
+              const gapSinceLast = now - lastActionTs;
+              if(lastActionTs > 0 && gapSinceLast < 2*60*1000){
+                reasons.push(`Hizo otro trabajo hace ${Math.round(gapSinceLast/1000)}s`);
+              }
+            }
+            db.ref('lastAction/'+currentUser.uid).set(now);
+
+            // Regla 2: lo marcó a menos de 3 minutos de que este puesto se desbloqueara
+            // (no aplica a los trabajos que pagan $500, esos se hacen rápido de verdad)
+            if(pay !== 500){
+              const availSnap = await db.ref('slotAvailableSince/'+key).once('value');
+              const availTs = availSnap.val();
+              if(availTs){
+                const gapSinceAvail = now - availTs;
+                if(gapSinceAvail < 3*60*1000){
+                  reasons.push(`Lo marcó a los ${Math.round(gapSinceAvail/1000)}s de desbloquearse`);
+                }
+              }
+            }
+
+            const flagged = reasons.length > 0;
+
+            const logRef = db.ref('logs').push();
+            await logRef.set({
+              uid: currentUser.uid,
+              username: currentUser.username,
+              jobId: job.id,
+              jobName: job.name,
+              catId: cat.id,
+              pay,
+              timestamp: now,
+              flagged,
+              flagReasons: flagged ? reasons.join(' · ') : null
+            });
+            if(pay){
+              db.ref('balances/'+currentUser.uid).transaction(bal=>{
+                bal = bal || {owed:0, totalEarned:0};
+                bal.owed = (bal.owed||0) + pay;
+                bal.totalEarned = (bal.totalEarned||0) + pay;
+                return bal;
+              });
+            }
+            if(job.aporte){
+              db.ref('categoryState/'+cat.id).transaction(state=>{
+                const decayed = computeDecayedValue(state && state.value, state && state.updatedAt, now);
+                const newValue = Math.min(100, Math.max(0, decayed + job.aporte));
+                return {value: newValue, updatedAt: now};
+              });
+            }
+            await db.ref('timers/'+key).set({
+              end: now + job.cd*60000,
+              uid: currentUser.uid,
+              username: currentUser.username,
+              jobId: job.id,
+              jobName: job.name,
+              pay,
+              logKey: logRef.key
+            });
+          }
+        });
+        row.appendChild(slot);
+      }
+      card.appendChild(row);
+    }
+
+    grid.appendChild(card);
+  });
+  tick();
+}
+
+function renderStatusBars(){
+  const box = document.getElementById('statusBars');
+  box.innerHTML = '';
+  CATS.forEach(c=>{
+    const row = document.createElement('div');
+    row.className = 'status-row';
+    row.innerHTML = `
+      <div class="status-label"><span>${c.emoji}</span> ${c.label}</div>
+      <div class="status-track"><div class="status-fill" id="fill-${c.id}" style="background:${c.hex}; width:0%"></div></div>
+      <div class="status-pct" id="pct-${c.id}">0/0</div>
+    `;
+    box.appendChild(row);
+  });
+}
+
+function updateStatusBars(){
+  const now = Date.now();
+  CATS.forEach(c=>{
+    const jobs = JOBS[c.id].filter(j=>!j.blocked);
+    let total=0, ready=0;
+    jobs.forEach(j=>{
+      const n = j.instances||1;
+      for(let i=0;i<n;i++){
+        total++;
+        const rec = timers[slotKey(j.id,i)];
+        if(!rec || rec.end<=now) ready++;
+      }
+    });
+    const pct = total ? Math.round((ready/total)*100) : 0;
+    const fill = document.getElementById('fill-'+c.id);
+    const pctEl = document.getElementById('pct-'+c.id);
+    if(fill) fill.style.width = pct+'%';
+    if(pctEl) pctEl.textContent = ready+'/'+total;
+  });
+}
+
+function applyStatusFilter(){
+  const grid = document.getElementById('jobGrid');
+  const cards = Array.from(grid.querySelectorAll('.job-card'));
+  let anyVisible = false;
+
+  cards.forEach(card=>{
+    let visible = true;
+    if(activeStatus !== 'Todos'){
+      if(card.classList.contains('blocked')){
+        visible = false;
+      } else {
+        const slots = card.querySelectorAll('.timer-slot');
+        const readyCount = card.querySelectorAll('.timer-slot.ready').length;
+        visible = activeStatus === 'Disponibles' ? readyCount > 0 : readyCount < slots.length;
+      }
+    }
+    card.style.display = visible ? '' : 'none';
+    if(visible) anyVisible = true;
+  });
+
+  let msg = document.getElementById('statusEmptyMsg');
+  if(cards.length > 0 && !anyVisible){
+    if(!msg){
+      msg = document.createElement('div');
+      msg.id = 'statusEmptyMsg';
+      msg.className = 'locked-note';
+      grid.appendChild(msg);
+    }
+    msg.textContent = activeStatus === 'Disponibles'
+      ? 'No tenés nada disponible ahora mismo — está todo en cooldown.'
+      : 'No tenés nada en cooldown ahora mismo, ¡a full disponible!';
+    msg.style.display = '';
+  } else if(msg){
+    msg.style.display = 'none';
+  }
+}
+
+const alreadyNotified = new Set(); // evita duplicar el aviso mientras Firebase confirma el borrado
+
+function processExpiredTimers(){
+  const now = Date.now();
+  Object.keys(timers).forEach(key=>{
+    const rec = timers[key];
+    if(rec && rec.end <= now){
+      const notifyId = key + ':' + rec.end;
+      if(!alreadyNotified.has(notifyId)){
+        alreadyNotified.add(notifyId);
+        notify(rec.jobName || 'Un trabajo');
+      }
+      // se cumplió el cooldown solo: se libera, pero el pago ya cobrado NO se toca
+      db.ref('timers/'+key).remove();
+      db.ref('slotAvailableSince/'+key).set(rec.end);
+    }
+  });
+}
+
+function tick(){
+  const now = Date.now();
+  processExpiredTimers(); // corre siempre, esté o no la tarjeta en pantalla
+
+  document.querySelectorAll('.timer-slot').forEach(slot=>{
+    const key = slot.dataset.key;
+    const rec = timers[key];
+    const end = rec ? rec.end : null;
+    const cd = document.querySelector(`[data-key="${key}"] .countdown`);
+    const btn = slot.querySelector('.slot-btn');
+    if(!end || end<=now){
+      cd.textContent = 'Disponible';
+      slot.classList.add('ready');
+      btn.textContent = 'Ya lo hice';
+    } else {
+      cd.textContent = fmtCountdown(end-now);
+      slot.classList.remove('ready');
+      btn.textContent = 'Deshacer';
+    }
+  });
+  updateStatusBars();
+  applyStatusFilter();
+  if(adminStarted) updateCategoryTrackingDisplay();
+}
+
+renderStatusBars();
+renderTabs();
+renderFilters();
+renderStatusChips();
+
+let appStarted = false;
+function startAppOnce(){
+  if(appStarted) return;
+  appStarted = true;
+  setSection('mall');
+  startPublicConfigListeners();
+  renderJobs();
+  setInterval(tick, 1000);
+  db.ref('timers').on('value', snapshot => {
+    timers = snapshot.val() || {};
+    tick();
+  });
+}
+
+// ====== CUENTAS ======
+let currentUser = null; // {uid, username, role}
+
+function usernameToEmail(username){
+  const clean = username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+  return clean + '@mallgtahub.local';
+}
+
+function showAuthError(msg){
+  document.getElementById('authError').textContent = msg;
+}
+
+function mapAuthError(err){
+  const code = err && err.code;
+  if(code === 'auth/email-already-in-use') return 'Ese usuario ya existe.';
+  if(code === 'auth/weak-password') return 'La contraseña es muy débil (mínimo 6 caracteres).';
+  if(code === 'auth/invalid-email') return 'Usá solo letras, números, puntos o guiones para el usuario.';
+  if(code === 'auth/wrong-password' || code === 'auth/user-not-found' || code === 'auth/invalid-credential') return 'Usuario o contraseña incorrectos.';
+  return 'Ocurrió un error, probá de nuevo.';
+}
+
+function switchAuthTab(mode){
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
+  document.getElementById('loginForm').style.display = mode==='login' ? 'flex' : 'none';
+  document.getElementById('signupForm').style.display = mode==='signup' ? 'flex' : 'none';
+  showAuthError('');
+}
+document.getElementById('tabLogin').addEventListener('click', ()=>switchAuthTab('login'));
+document.getElementById('tabSignup').addEventListener('click', ()=>switchAuthTab('signup'));
+
+document.getElementById('loginSubmit').addEventListener('click', async ()=>{
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  showAuthError('');
+  if(!username || !password){ showAuthError('Completá usuario y contraseña.'); return; }
+  try{
+    await auth.signInWithEmailAndPassword(usernameToEmail(username), password);
+  }catch(err){
+    showAuthError(mapAuthError(err));
+  }
+});
+
+document.getElementById('signupSubmit').addEventListener('click', async ()=>{
+  const username = document.getElementById('signupUsername').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const password2 = document.getElementById('signupPassword2').value;
+  showAuthError('');
+  if(username.length < 3){ showAuthError('El usuario debe tener al menos 3 caracteres.'); return; }
+  if(password.length < 6){ showAuthError('La contraseña debe tener al menos 6 caracteres.'); return; }
+  if(password !== password2){ showAuthError('Las contraseñas no coinciden.'); return; }
+  try{
+    const cred = await auth.createUserWithEmailAndPassword(usernameToEmail(username), password);
+    // Todas las cuentas nuevas entran como usuario común. Un Dueño la asciende después desde el Panel de Admin.
+    await db.ref('users/'+cred.user.uid).set({username, role: 'user', createdAt: Date.now()});
+  }catch(err){
+    showAuthError(mapAuthError(err));
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  if(!confirm('¿Seguro que querés cerrar sesión?')) return;
+  auth.signOut();
+});
+
+auth.onAuthStateChanged(async (user)=>{
+  const overlay = document.getElementById('authOverlay');
+  const userBar = document.getElementById('userBar');
+  const mallToggleBtn = document.getElementById('mallToggleBtn');
+  const adminToggleBtn = document.getElementById('adminToggleBtn');
+  const cajaToggleBtn = document.getElementById('cajaToggleBtn');
+  const configToggleBtn = document.getElementById('configToggleBtn');
+  if(user){
+    let profile = null;
+    try{
+      const snap = await db.ref('users/'+user.uid).once('value');
+      profile = snap.val();
+    }catch(e){ /* sin permiso todavía o error de red */ }
+    if(!profile){
+      // Cuenta de Auth creada pero sin perfil en la base (caso raro) — la tratamos como usuario común
+      profile = {username: user.email.split('@')[0], role: 'user'};
+    }
+    currentUser = {uid: user.uid, username: profile.username, role: profile.role};
+    document.getElementById('userBarName').textContent = currentUser.username;
+    const roleBadge = document.getElementById('userBarRole');
+    roleBadge.textContent = currentUser.role === 'owner' ? '★ Dueño' : 'Empleado';
+    roleBadge.classList.toggle('owner', currentUser.role === 'owner');
+    mallToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
+    adminToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
+    cajaToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
+    configToggleBtn.style.display = currentUser.role === 'owner' ? 'flex' : 'none';
+    updateVentasNavVisibility();
+    userBar.style.display = 'flex';
+    overlay.style.display = 'none';
+    startAppOnce();
+    applyStoredCollapseState();
+    startPersonalPrefsListeners();
+  } else {
+    currentUser = null;
+    userBar.style.display = 'none';
+    overlay.style.display = 'flex';
+    setSection('mall');
+  }
+});
+
+// ====== PANEL DE ADMINISTRACIÓN ======
+
+// Devuelve el timestamp (ms) del lunes 00:00 hora Argentina (UTC-3) de la semana actual
+function weekStartTimestampART(){
+  const now = new Date();
+  const artShifted = new Date(now.getTime() - 3*60*60*1000);
+  const day = artShifted.getUTCDay(); // 0=domingo ... 6=sábado
+  const diffToMonday = (day === 0) ? 6 : day - 1;
+  const artMidnight = Date.UTC(artShifted.getUTCFullYear(), artShifted.getUTCMonth(), artShifted.getUTCDate() - diffToMonday, 0, 0, 0);
+  return artMidnight + 3*60*60*1000;
+}
+
+function fmtDateShort(ts){
+  return new Date(ts).toLocaleDateString('es-AR');
+}
+
+// Revisa si ya pasó alguna semana sin archivar, y la guarda en 'weeklyHistory' antes de que
+// el conteo semanal la pise. Corre cada vez que un dueño abre el Panel de Admin.
+async function checkAndArchiveWeeklyHistory(){
+  const currentWeekStart = weekStartTimestampART();
+  const markerSnap = await db.ref('weeklyArchive/lastArchivedWeekStart').once('value');
+  let lastArchived = markerSnap.val();
+
+  if(!lastArchived){
+    // Primera vez que corre esto: no hay nada previo que archivar, arrancamos desde ahora.
+    await db.ref('weeklyArchive/lastArchivedWeekStart').set(currentWeekStart);
+    return;
+  }
+
+  const usersSnap = await db.ref('users').once('value');
+  const usersMap = usersSnap.val() || {};
+
+  while(lastArchived < currentWeekStart){
+    const weekEnd = lastArchived + 7*24*60*60*1000;
+    const logsSnap = await db.ref('logs').orderByChild('timestamp').startAt(lastArchived).endAt(weekEnd - 1).once('value');
+    const entries = {};
+    logsSnap.forEach(child=>{
+      const log = child.val();
+      if(!entries[log.uid]){
+        entries[log.uid] = {
+          username: (usersMap[log.uid] && usersMap[log.uid].username) || log.username || 'Usuario',
+          jobsCount: 0,
+          totalEarned: 0
+        };
+      }
+      entries[log.uid].jobsCount++;
+      entries[log.uid].totalEarned += (log.pay||0);
+    });
+
+    if(Object.keys(entries).length > 0){
+      await db.ref('weeklyHistory').push({
+        weekStart: lastArchived,
+        weekEnd: weekEnd,
+        entries,
+        timestamp: Date.now()
+      });
+    }
+
+    lastArchived = weekEnd;
+    await db.ref('weeklyArchive/lastArchivedWeekStart').set(lastArchived);
+  }
+}
+
+function renderWeeklyHistory(data){
+  const box = document.getElementById('weeklyHistoryWrap');
+  const weeks = Object.entries(data).map(([key,v])=>({key, ...v})).sort((a,b)=> b.weekStart - a.weekStart);
+  if(weeks.length===0){ box.innerHTML = '<div class="admin-empty">Todavía no se archivó ninguna semana.</div>'; return; }
+
+  box.innerHTML = weeks.map(w=>{
+    const entries = Object.values(w.entries||{}).sort((a,b)=> b.jobsCount - a.jobsCount);
+    const rows = entries.map(e=>`
+      <tr><td>${e.username}</td><td>${e.jobsCount}</td><td>${fmtMoney(e.totalEarned)}</td></tr>
+    `).join('');
+    return `
+      <div style="margin-bottom:14px;">
+        <div class="payment-row">
+          <span><b>Semana del ${fmtDateShort(w.weekStart)} al ${fmtDateShort(w.weekEnd - 1)}</b></span>
+          <button class="dismiss-btn" data-key="${w.key}">Borrar</button>
+        </div>
+        <table class="admin-table" style="margin-top:6px;">
+          <thead><tr><th>Usuario</th><th>Trabajos</th><th>Ganado</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }).join('');
+
+  box.querySelectorAll('.dismiss-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm('¿Borrar esta semana del historial de trabajos?')) return;
+      db.ref('weeklyHistory/'+btn.dataset.key).remove();
+    });
+  });
+}
+
+function fmtMoney(n){
+  return '$' + (n||0).toLocaleString('es-AR');
+}
+
+// Calcula el valor actual de una categoría aplicando el decaimiento de 4 puntos por hora, de forma paulatina
+function computeDecayedValue(baseValue, baseTimestamp, now){
+  if(typeof baseValue !== 'number' || !baseTimestamp) return 0;
+  const hoursElapsed = (now - baseTimestamp) / (60*60*1000);
+  return Math.max(0, baseValue - 4 * hoursElapsed);
+}
+
+let adminUsersCache = {};
+let adminBalancesCache = {};
+let adminWeeklyCounts = {};
+let categoryStateCache = {};
+let adminStarted = false;
+
+function startAdminListeners(){
+  if(adminStarted) return;
+  adminStarted = true;
+
+  checkAndArchiveWeeklyHistory();
+
+  db.ref('weeklyHistory').on('value', snap=>{
+    renderWeeklyHistory(snap.val() || {});
+  });
+
+  db.ref('users').on('value', snap=>{
+    adminUsersCache = snap.val() || {};
+    renderAdminTable();
+  });
+
+  db.ref('balances').on('value', snap=>{
+    adminBalancesCache = snap.val() || {};
+    renderAdminTable();
+  });
+
+  const wStart = weekStartTimestampART();
+  db.ref('logs').orderByChild('timestamp').startAt(wStart).on('value', snap=>{
+    const counts = {};
+    snap.forEach(child=>{
+      const log = child.val();
+      counts[log.uid] = (counts[log.uid]||0) + 1;
+    });
+    adminWeeklyCounts = counts;
+    renderAdminTable();
+  });
+
+  db.ref('payments').on('value', snap=>{
+    renderPaymentsHistory(snap.val() || {});
+  });
+
+  db.ref('logs').orderByChild('timestamp').limitToLast(150).on('value', snap=>{
+    const flagged = [];
+    snap.forEach(child=>{
+      const log = child.val();
+      if(log.flagged) flagged.push({...log, key: child.key});
+    });
+    renderSuspiciousActivity(flagged);
+  });
+
+  db.ref('categoryState').on('value', snap=>{
+    categoryStateCache = snap.val() || {};
+    renderCategoryTracking();
+  });
+}
+
+function renderCategoryTracking(){
+  const box = document.getElementById('categoryTrackingWrap');
+  box.innerHTML = CATS.map(cat=>`
+    <div class="cat-track-row">
+      <span class="cat-track-label">${cat.emoji} ${cat.label}</span>
+      <span class="cat-track-value" id="cat-live-${cat.id}">–%</span>
+      <input type="number" class="cat-track-input" id="cat-input-${cat.id}" placeholder="Nuevo valor" min="0" max="100">
+      <button class="pay-btn" data-catid="${cat.id}">Actualizar</button>
+    </div>
+  `).join('');
+
+  box.querySelectorAll('button[data-catid]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const catId = btn.dataset.catid;
+      const input = document.getElementById('cat-input-'+catId);
+      const val = Number(input.value);
+      if(input.value === '' || isNaN(val) || val<0 || val>100){
+        alert('Poné un número entre 0 y 100.');
+        return;
+      }
+      await db.ref('categoryState/'+catId).set({value: val, updatedAt: Date.now()});
+      input.value = '';
+      showToast(`Nuevo valor: ${val}%`, '💾 Estado actualizado');
+    });
+  });
+
+  updateCategoryTrackingDisplay();
+}
+
+function updateCategoryTrackingDisplay(){
+  const now = Date.now();
+  CATS.forEach(cat=>{
+    const el = document.getElementById('cat-live-'+cat.id);
+    if(!el) return;
+    const state = categoryStateCache[cat.id];
+    const value = state ? computeDecayedValue(state.value, state.updatedAt, now) : 0;
+    el.textContent = Math.round(value) + '%';
+  });
+}
+
+function dismissSuspicious(logKey){
+  db.ref('logs/'+logKey).update({flagged:false, flagReasons:null});
+}
+
+function renderSuspiciousActivity(items){
+  const headerBox = document.getElementById('suspiciousActivityHeader');
+  const box = document.getElementById('suspiciousActivity');
+  if(items.length === 0){
+    headerBox.innerHTML = '';
+    box.innerHTML = '<div class="admin-empty">No hay actividad sospechosa reciente. 👍</div>';
+    return;
+  }
+  items.reverse(); // más reciente primero
+
+  headerBox.innerHTML = `<button class="dismiss-all-btn" id="dismissAllBtn">Borrar todas (${items.length})</button>`;
+  document.getElementById('dismissAllBtn').addEventListener('click', ()=>{
+    if(!confirm(`¿Borrar las ${items.length} notificaciones de sospecha?`)) return;
+    items.forEach(log => dismissSuspicious(log.key));
+  });
+
+  box.innerHTML = `<div class="payments-list">${items.map(log=>{
+    const date = new Date(log.timestamp).toLocaleString('es-AR');
+    const reason = log.flagReasons || (log.gapMs ? `a ${Math.round(log.gapMs/1000)}s del anterior` : 'motivo sin detalle');
+    return `<div class="payment-row" style="border-left:3px solid var(--seguridad);">
+      <span><b>${log.username}</b> — ${log.jobName} (${reason})</span>
+      <span style="display:flex;align-items:center;gap:10px;">${date} <button class="dismiss-btn" data-key="${log.key}">Borrar</button></span>
+    </div>`;
+  }).join('')}</div>`;
+
+  box.querySelectorAll('.dismiss-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> dismissSuspicious(btn.dataset.key));
+  });
+}
+
+function renderAdminTable(){
+  const box = document.getElementById('adminTableWrap');
+  const uids = Object.keys(adminUsersCache);
+  if(uids.length === 0){
+    box.innerHTML = '<div class="admin-empty">Todavía no hay usuarios registrados.</div>';
+    return;
+  }
+  let rows = uids.map(uid=>{
+    const u = adminUsersCache[uid];
+    const bal = adminBalancesCache[uid] || {owed:0, totalEarned:0};
+    const weekly = adminWeeklyCounts[uid] || 0;
+    const owed = bal.owed || 0;
+    const isOwner = u.role === 'owner';
+    return `
+      <tr>
+        <td>${u.username}${isOwner ? ' <span class="role-badge owner" style="margin-left:6px;">★ Dueño</span>' : ''}</td>
+        <td>${weekly}</td>
+        <td>${fmtMoney(bal.totalEarned)}</td>
+        <td class="owed-amount ${owed>0?'has-debt':''}">${fmtMoney(owed)}</td>
+        <td><button class="pay-btn" data-uid="${uid}" data-username="${u.username}" data-amount="${owed}" ${owed<=0?'disabled':''}>Pagado</button></td>
+      </tr>
+    `;
+  }).join('');
+
+  box.innerHTML = `
+    <table class="admin-table">
+      <thead>
+        <tr><th>Usuario</th><th>Trabajos esta semana</th><th>Ganado (total)</th><th>Le debo</th><th></th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  box.querySelectorAll('.pay-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const uid = btn.dataset.uid;
+      const username = btn.dataset.username;
+      const amount = Number(btn.dataset.amount);
+      if(amount <= 0) return;
+      if(!confirm(`¿Confirmás que ya le pagaste ${fmtMoney(amount)} a ${username}?`)) return;
+      await db.ref('balances/'+uid+'/owed').set(0);
+      await db.ref('payments').push({uid, username, amount, timestamp: Date.now(), paidBy: currentUser.username});
+      showToast(`${username} — ${fmtMoney(amount)}`, '💾 Marcado como pagado');
+    });
+  });
+}
+
+function renderPaymentsHistory(data){
+  const box = document.getElementById('paymentsHistory');
+  const items = Object.entries(data).map(([key,v])=>({key, ...v})).sort((a,b)=> b.timestamp - a.timestamp).slice(0,20);
+  if(items.length === 0){
+    box.innerHTML = '<div class="admin-empty">Todavía no se registraron pagos.</div>';
+    return;
+  }
+  box.innerHTML = `<div class="payments-list">${items.map(p=>{
+    const date = new Date(p.timestamp).toLocaleString('es-AR');
+    return `<div class="payment-row"><span><b>${p.username}</b> — ${fmtMoney(p.amount)}</span><span style="display:flex;align-items:center;gap:10px;">${date} <button class="dismiss-btn" data-key="${p.key}">Borrar</button></span></div>`;
+  }).join('')}</div>`;
+  box.querySelectorAll('.dismiss-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm('¿Borrar este registro de pago del historial? No afecta lo que ya se le pagó.')) return;
+      db.ref('payments/'+btn.dataset.key).remove();
+    });
+  });
+}
+
+function setSection(section){ // 'mall' | 'admin' | 'caja' | 'config' | 'ventas'
+  document.getElementById('mainView').style.display = section==='mall' ? '' : 'none';
+  document.getElementById('adminView').style.display = section==='admin' ? 'block' : 'none';
+  document.getElementById('cajaView').style.display = section==='caja' ? 'block' : 'none';
+  document.getElementById('configView').style.display = section==='config' ? 'block' : 'none';
+  document.getElementById('ventasView').style.display = section==='ventas' ? 'block' : 'none';
+  document.getElementById('heroExpanded').style.display = section==='mall' ? '' : 'none';
+
+  document.getElementById('mallToggleBtn').classList.toggle('nav-active', section==='mall');
+  document.getElementById('adminToggleBtn').classList.toggle('nav-active', section==='admin');
+  document.getElementById('cajaToggleBtn').classList.toggle('nav-active', section==='caja');
+  document.getElementById('configToggleBtn').classList.toggle('nav-active', section==='config');
+  document.getElementById('ventasToggleBtn').classList.toggle('nav-active', section==='ventas');
+
+  if(section==='admin') startAdminListeners();
+  if(section==='caja') startCajaListeners();
+  if(section==='config') startConfigListeners();
+  if(section==='ventas') startVentasListeners();
+}
+
+document.getElementById('mallToggleBtn').addEventListener('click', ()=> setSection('mall'));
+document.getElementById('adminToggleBtn').addEventListener('click', ()=> setSection('admin'));
+document.getElementById('cajaToggleBtn').addEventListener('click', ()=> setSection('caja'));
+document.getElementById('configToggleBtn').addEventListener('click', ()=> setSection('config'));
+document.getElementById('ventasToggleBtn').addEventListener('click', ()=> setSection('ventas'));
+
+// ====== CIERRE DE CAJA ======
+
+let cajaStarted = false;
+let ownersCache = {}; // {ownerId: {name, createdAt}}
+
+function ownersList(){
+  return Object.entries(ownersCache)
+    .map(([id,v])=>({id, name:v.name, createdAt:v.createdAt||0}))
+    .sort((a,b)=>a.createdAt-b.createdAt);
+}
+function ownerName(id){
+  const o = ownersCache[id];
+  return o ? o.name : '(dueño eliminado)';
+}
+
+let roperosCache = {}; // {roperoId: {name, createdAt}}
+function roperosList(){
+  return Object.entries(roperosCache)
+    .map(([id,v])=>({id, name:v.name, createdAt:v.createdAt||0}))
+    .sort((a,b)=>a.createdAt-b.createdAt);
+}
+function fillRopaRoperoSelect(){
+  document.getElementById('ropaRopero').innerHTML = roperosList().map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+}
+
+let abastCache = {};
+let ropaCache = {};
+let cajaActualCache = {amount:0};
+let cajaHistorialCache = {};
+let gastosExtraCache = {};
+let deudasCache = {}; // {ownerId: monto que arrastra como deuda al próximo cierre}
+
+// ====== SISTEMA GENÉRICO DE PRODUCTOS (Medicina, Tecnología, y las que se sumen después) ======
+const PRODUCT_CATEGORIES = [
+  {id:'medicina', name:'Medicina', emoji:'💊', buyable:true},
+  {id:'tecnologia', name:'Tecnología', emoji:'💻', buyable:true},
+  {id:'bebidas', name:'Bebidas', emoji:'🍺', buyable:true},
+  {id:'comida', name:'Comida', emoji:'🍎', buyable:true},
+  {id:'herramientas', name:'Herramientas', emoji:'🛠️', buyable:true},
+  {id:'objetos', name:'Objetos', emoji:'📦', buyable:false}, // sin Abastecimiento propio, solo se cargan a mano
+  {id:'comida_elaborados', name:'Comida elaborada', emoji:'👨‍🍳', buyable:false}, // se cocina, no se compra
+  {id:'bebidas_elaboradas', name:'Bebidas elaboradas', emoji:'🍹', buyable:false}, // se preparan/venden, no se compran
+];
+
+// Reglas de qué precio es obligatorio al crear un ítem nuevo a mano en cada categoría.
+// Las que no están acá usan el default: compra obligatoria, venta opcional (se compran en Abastecimiento).
+const CATEGORY_ITEM_RULES = {
+  objetos: {requireBuy:false, requireSell:true},
+  comida_elaborados: {requireBuy:false, requireSell:false},
+  bebidas_elaboradas: {requireBuy:false, requireSell:false},
+};
+function getItemRules(catId){
+  return CATEGORY_ITEM_RULES[catId] || {requireBuy:true, requireSell:false};
+}
+
+// Secciones que se VEN en pantalla — Objetos y Comida agrupan varias categorías en una sola tabla,
+// con una columna que indica el origen de cada ítem.
+const DISPLAY_SECTIONS = [
+  {id:'medicina', name:'Medicina', emoji:'💊', sources:['medicina']},
+  {id:'objetos', name:'Objetos', emoji:'📦', sources:['tecnologia','herramientas','objetos']},
+  {id:'bebidas', name:'Bebidas', emoji:'🍺', sources:['bebidas','bebidas_elaboradas']},
+  {id:'comida', name:'Comida', emoji:'🍎', sources:['comida','comida_elaborados']},
+];
+
+function sectionForCategory(catId){
+  return DISPLAY_SECTIONS.find(s => s.sources.includes(catId));
+}
+
+function getSectionItems(section){
+  let combined = [];
+  section.sources.forEach(catId=>{
+    (PRODUCT_ITEMS[catId]||[]).forEach(item=> combined.push({...item, catId}));
+  });
+  // Orden manual (campo order); los que no tienen order van al final, y ahí alfabético
+  combined.sort((a,b)=>{
+    const oa = (typeof a.order==='number') ? a.order : 1e9;
+    const ob = (typeof b.order==='number') ? b.order : 1e9;
+    return oa - ob || a.name.localeCompare(b.name);
+  });
+  return combined;
+}
+
+// Semillas iniciales — solo se usan la primera vez que la categoría no tiene ítems en Firebase.
+const DEFAULT_MEDICINE_ITEMS = {
+  analgesicos: {name:'Bolsa de Analgésicos', sell:620, buy:400},
+  botiquin: {name:'Botiquín de primeros auxilios', sell:19900, buy:15000},
+  desinfectante: {name:'Desinfectante', sell:3350, buy:3000},
+  kitmedico: {name:'Kit Médico', sell:7850, buy:7500},
+  rollovendas: {name:'Rollo de Vendas', sell:620, buy:400},
+  suturacremallera: {name:'Sutura de Cremallera', sell:3900, buy:3500},
+  vendajehemostatico: {name:'Vendaje Hemostático', sell:4450, buy:4000},
+  vendajecompresion: {name:'Vendaje de compresión', sell:4100, buy:2500},
+};
+const DEFAULT_TECH_ITEMS = {
+  bateria_litio: {name:'Batería de litio', sell:0, buy:500},
+  bongo: {name:'Bongo', sell:0, buy:3200},
+  camara: {name:'Camara', sell:0, buy:9500},
+  comlink: {name:'ComLink', sell:0, buy:17000},
+  camara_tv: {name:'Cámara de TV', sell:0, buy:30000},
+  guitarra_clasica: {name:'Guitarra clásica', sell:0, buy:3500},
+  guitarra_electrica: {name:'Guitarra eléctrica', sell:0, buy:5400},
+  guitarra_electrica_blanca: {name:'Guitarra eléctrica blanca', sell:0, buy:5000},
+  guitarra_electrica_naranja: {name:'Guitarra eléctrica naranja', sell:0, buy:4940},
+  guitarra_electrica_negra: {name:'Guitarra eléctrica negra', sell:0, buy:5200},
+  megafono: {name:'Megáfono', sell:0, buy:3780},
+  microchip: {name:'Microchip', sell:0, buy:3920},
+  microfono: {name:'Microfono', sell:0, buy:800},
+  microfono_grande: {name:'Microfono grande', sell:0, buy:10000},
+  pendrive: {name:'Pendrive', sell:0, buy:3725},
+  tablet: {name:'Tablet', sell:0, buy:2380},
+  walkie_talkie: {name:'Walkie-Talkie', sell:0, buy:6000},
+  walkie_talkie_v2: {name:'Walkie-Talkie v2', sell:0, buy:8000},
+  walkie_talkie_v3_amarillo: {name:'Walkie-Talkie v3 Amarillo', sell:0, buy:6500},
+  walkie_talkie_v3_azul: {name:'Walkie-Talkie v3 Azul', sell:0, buy:6500},
+  walkie_talkie_v3_blanco: {name:'Walkie-Talkie v3 Blanco', sell:0, buy:6500},
+  walkie_talkie_v3_naranja: {name:'Walkie-Talkie v3 Naranja', sell:0, buy:6500},
+  walkie_talkie_v3_rojo: {name:'Walkie-Talkie v3 Rojo', sell:0, buy:6500},
+  walkie_talkie_v3_verde: {name:'Walkie-Talkie v3 Verde', sell:0, buy:6500},
+};
+const DEFAULT_BEBIDAS_ITEMS = {
+  bebida_energetica: {name:'Bebida energética', sell:0, buy:110},
+  botella_agua: {name:'Botella de agua', sell:0, buy:19},
+  cerveza_afterlife: {name:'Botella de cerveza "Afterlife"', sell:0, buy:130},
+  cerveza_barracho: {name:'Botella de cerveza "Barracho"', sell:0, buy:125},
+  cerveza_blarneys: {name:'Botella de cerveza "Blarneys"', sell:0, buy:230},
+  cerveza_dusche: {name:'Botella de cerveza "Dusche"', sell:0, buy:265},
+  cerveza_jakeys: {name:'Botella de cerveza "Jakey\'s"', sell:0, buy:260},
+  cerveza_logger: {name:'Botella de cerveza "Logger"', sell:0, buy:195},
+  cerveza_patriot: {name:'Botella de cerveza "Patriot"', sell:0, buy:280},
+  cerveza_pisswasser: {name:'Botella de cerveza "Pißwasser"', sell:0, buy:110},
+  cerveza_pride: {name:'Botella de cerveza "Pride"', sell:0, buy:200},
+  cerveza_stronzo: {name:'Botella de cerveza "Stronzo"', sell:0, buy:275},
+  champagne: {name:'Botella de champagne', sell:0, buy:190},
+  ron: {name:'Botella de ron', sell:0, buy:150},
+  tequila: {name:'Botella de tequila', sell:0, buy:350},
+  vermut: {name:'Botella de vermut', sell:0, buy:193},
+  vino_blanco: {name:'Botella de vino blanco', sell:0, buy:180},
+  vino_tinto: {name:'Botella de vino tinto', sell:0, buy:170},
+  vodka: {name:'Botella de vodka', sell:0, buy:145},
+  whisky: {name:'Botella de whisky', sell:0, buy:159},
+  lata_ecola: {name:'Lata de Ecola', sell:0, buy:44},
+  lata_sprunk: {name:'Lata de Sprunk', sell:0, buy:38},
+};
+const DEFAULT_COMIDA_ITEMS = {
+  aceite_cocina: {name:'Aceite de cocina', sell:0, buy:48},
+  ajo: {name:'Ajo', sell:0, buy:1},
+  atun: {name:'Atún', sell:0, buy:594},
+  azucar: {name:'Azúcar', sell:0, buy:20},
+  bagre: {name:'Bagre', sell:0, buy:239},
+  banana: {name:'Banana', sell:0, buy:12},
+  barra_chocolate: {name:'Barra de chocolate', sell:0, buy:23},
+  bolsa_arroz: {name:'Bolsa de arroz', sell:0, buy:77},
+  bolsa_comida_perro: {name:'Bolsa de comida para Perro', sell:0, buy:95},
+  bolsa_harina: {name:'Bolsa de harina', sell:0, buy:51},
+  bolsa_pan: {name:'Bolsa de pan', sell:0, buy:9},
+  bolsa_papel: {name:'Bolsa de papel', sell:0, buy:24},
+  bolsa_papitas_fritas: {name:'Bolsa de papitas fritas', sell:0, buy:24},
+  bolsa_patatas: {name:'Bolsa de patatas', sell:0, buy:40},
+  botella_leche: {name:'Botella de leche', sell:0, buy:52},
+  caja_huevos_mediana: {name:'Caja de huevos mediana', sell:0, buy:60},
+  caja_huevos_pequena: {name:'Caja de huevos pequeña', sell:0, buy:30},
+  caja_pizza_vacia: {name:'Caja de pizza vacía', sell:0, buy:38},
+  calabaza: {name:'Calabaza', sell:0, buy:52},
+  caramelos: {name:'Caramelos', sell:0, buy:37},
+  carne_cruda: {name:'Carne cruda', sell:0, buy:215},
+  carne_picada: {name:'Carne picada', sell:0, buy:45},
+  cebolla: {name:'Cebolla', sell:0, buy:58},
+  comida_gatos: {name:'Comida para gatos', sell:0, buy:100},
+  costilla_cruda: {name:'Costilla cruda', sell:0, buy:400},
+  cubeta_vacia: {name:'Cubeta vacía', sell:0, buy:35},
+  extracto_te: {name:'Extracto de té', sell:0, buy:11},
+  fideos_instantaneos: {name:'Fideos instantaneos', sell:0, buy:65},
+  fresa: {name:'Fresa', sell:0, buy:84},
+  frijoles: {name:'Frijoles', sell:0, buy:5},
+  ketchup: {name:'Ketchup', sell:0, buy:3},
+  lechuga: {name:'Lechuga', sell:0, buy:45},
+  limon: {name:'Limón', sell:0, buy:118},
+  mantequilla: {name:'Mantequilla', sell:0, buy:31},
+  manzana: {name:'Manzana', sell:0, buy:162},
+  mochila_delivery: {name:'Mochila "Delivery"', sell:0, buy:8905},
+  naranja: {name:'Naranja', sell:0, buy:9},
+  paquete_jamon: {name:'Paquete de jamón', sell:0, buy:4},
+  paquete_pasta: {name:'Paquete de pasta', sell:0, buy:39},
+  paquete_salchichas: {name:'Paquete de salchichas', sell:0, buy:6},
+  pata_jamon: {name:'Pata de jamón', sell:0, buy:15},
+  pepperoni: {name:'Pepperoni', sell:0, buy:27},
+  pina: {name:'Piña', sell:0, buy:50},
+  pollo_crudo: {name:'Pollo crudo', sell:0, buy:128},
+  queso: {name:'Queso', sell:0, buy:2},
+  sal: {name:'Sal', sell:0, buy:2},
+  salmon: {name:'Salmón', sell:0, buy:366},
+  salsa_bbq: {name:'Salsa BBQ', sell:0, buy:10},
+  sabalo: {name:'Sábalo', sell:0, buy:539},
+  tarro_cafe: {name:'Tarro de café', sell:0, buy:19},
+  tomate: {name:'Tomate', sell:0, buy:89},
+  uva: {name:'Uva', sell:0, buy:318},
+  zanahoria: {name:'Zanahoria', sell:0, buy:74},
+};
+const DEFAULT_HERRAMIENTAS_ITEMS = {
+  anotador: {name:'Anotador', sell:0, buy:322},
+  barbacoa: {name:'Barbacoa', sell:0, buy:2940},
+  barra_luminosa: {name:'Barra luminosa', sell:0, buy:350},
+  binocular: {name:'Binocular', sell:0, buy:3199},
+  caja_herramientas: {name:'Caja de herramientas', sell:0, buy:388},
+  cana_pescar: {name:'Caña de pescar', sell:0, buy:318},
+  destornillador: {name:'Destornillador', sell:0, buy:15},
+  linterna: {name:'Linterna', sell:0, buy:175},
+  llave_inglesa: {name:'Llave inglesa', sell:0, buy:770},
+  martillo: {name:'Martillo', sell:0, buy:350},
+  maza: {name:'Maza', sell:0, buy:210},
+  mesa_barril: {name:'Mesa de barril', sell:0, buy:1351},
+  mesa_madera_oscura: {name:'Mesa de madera oscura', sell:0, buy:2625},
+  mesa_madera_pequena: {name:'Mesa de madera pequeña', sell:0, buy:917},
+  mesa_madera_reciclada: {name:'Mesa de madera reciclada', sell:0, buy:2205},
+  mesa_plastico: {name:'Mesa de plastico', sell:0, buy:1750},
+  mesa_plastico_cuadrada: {name:'Mesa de plastico cuadrada', sell:0, buy:1050},
+  mesa_poker: {name:'Mesa de poker', sell:0, buy:2394},
+  mesa_plastica_artesanias: {name:'Mesa plástica con artesanías', sell:0, buy:1365},
+  motosierra: {name:'Motosierra', sell:0, buy:910},
+  palanca: {name:'Palanca', sell:0, buy:595},
+  pesa_pequena: {name:'Pesa pequeña', sell:0, buy:77},
+  rastrillo: {name:'Rastrillo', sell:0, buy:30},
+  regadera: {name:'Regadera', sell:0, buy:20},
+  rociador: {name:'Rociador', sell:0, buy:525},
+  silla_mimbre_verde: {name:'Silla de mimbre verde', sell:0, buy:2240},
+  silla_plastico: {name:'Silla de plastico', sell:0, buy:840},
+  silla_plegable_cuadros: {name:'Silla plegable a cuadros', sell:0, buy:3136},
+  silla_plegable_amarilla: {name:'Silla plegable amarilla', sell:0, buy:1988},
+  silla_plegable_azul: {name:'Silla plegable azul', sell:0, buy:3010},
+  silla_plegable_verde: {name:'Silla plegable verde', sell:0, buy:2961},
+  sofa_grande_azul: {name:'Sofá grande azul', sell:0, buy:3850},
+  sofa_grande_floral: {name:'Sofá grande floral', sell:0, buy:2625},
+  sofa_pequeno_diseno: {name:'Sofá pequeño con diseño', sell:0, buy:1995},
+  sofa_pequeno_cuero: {name:'Sofá pequeño de cuero', sell:0, buy:2475},
+  soplador: {name:'Soplador', sell:0, buy:135},
+  taladro: {name:'Taladro', sell:0, buy:245},
+  tienda_campana_1: {name:'Tienda de campaña', sell:0, buy:1260},
+  tienda_campana_2: {name:'Tienda de campaña', sell:0, buy:1400},
+  tienda_campana_3: {name:'Tienda de campaña', sell:0, buy:1750},
+  silla_plastico_reciclada: {name:'Silla de plástico reciclada', sell:0, buy:525},
+};
+
+const DEFAULT_COMIDA_ELABORADOS_ITEMS = {
+  carne_cocida: {name:'Carne cocida', sell:0, buy:0},
+  pollo_cocido: {name:'Pollo cocido', sell:0, buy:0},
+  sandwich: {name:'Sandwich', sell:0, buy:0},
+  perro_caliente: {name:'Perro caliente', sell:0, buy:0},
+  hamburguesa: {name:'Hamburguesa', sell:0, buy:0},
+  taco: {name:'Taco', sell:0, buy:0},
+  nuggets_pollo: {name:'Nuggets de pollo', sell:0, buy:0},
+  pollo_asado_vegetales: {name:'Pollo asado con vegetales', sell:0, buy:0},
+  carne_asada_vegetales: {name:'Carne asada con vegetales', sell:0, buy:0},
+  bagre_asado_vegetales: {name:'Bagre asado con vegetales', sell:0, buy:0},
+  sopa_pollo: {name:'Sopa de pollo', sell:0, buy:0},
+  sopa_calabaza: {name:'Sopa de calabaza', sell:0, buy:0},
+  sopa_pescado: {name:'Sopa de pescado', sell:0, buy:0},
+  plato_sushi: {name:'Plato de Sushi', sell:0, buy:0},
+  huevo_chocolate: {name:'Huevo de chocolate', sell:0, buy:0},
+  costilla_bbq: {name:'Costilla BBQ', sell:0, buy:0},
+  patata_horneada: {name:'Patata horneada', sell:0, buy:0},
+  pizza_personal_pepperoni: {name:'Pizza personal "Pepperoni"', sell:0, buy:0},
+  pizza_personal_tres_carnes: {name:'Pizza personal "Tres Carnes"', sell:0, buy:0},
+  pizza_personal_queso: {name:'Pizza personal "Queso"', sell:0, buy:0},
+  pizza_personal_napolitana: {name:'Pizza personal "Napolitana"', sell:0, buy:0},
+  dumpling: {name:'Dumpling', sell:0, buy:0},
+  ramen: {name:'Ramen', sell:0, buy:0},
+  eomuk_torta_pescado: {name:'"Eomuk" Torta de pescado', sell:0, buy:0},
+  caja_pizza_pepperoni: {name:'Caja de pizza "Pepperoni"', sell:0, buy:0},
+  caja_pizza_tres_carnes: {name:'Caja de pizza "Tres Carnes"', sell:0, buy:0},
+  caja_pizza_queso: {name:'Caja de pizza "Queso"', sell:0, buy:0},
+  caja_pizza_napolitana: {name:'Caja de pizza "Napolitana"', sell:0, buy:0},
+  cubeta_pollo_frito: {name:'Cubeta de pollo frito', sell:0, buy:0},
+  dango_pincho_dumplings: {name:'"Dango" Pincho de dumplings', sell:0, buy:0},
+  sopa_instantanea: {name:'Sopa instantanea', sell:0, buy:0},
+  pollo_frito: {name:'Pollo frito', sell:0, buy:0},
+  patatas_fritas: {name:'Patatas fritas', sell:0, buy:0},
+  tamagoyaki_sushi_omelet: {name:'"Tamagoyaki" Sushi de omelet', sell:0, buy:0},
+  rollo_primavera: {name:'Rollo de primavera', sell:0, buy:0},
+  arroz_frito: {name:'Arroz frito', sell:0, buy:0},
+};
+const DEFAULT_BEBIDAS_ELABORADAS_ITEMS = {
+  // Calientes
+  taza_cafe: {name:'Taza de café', sell:0, buy:0},
+  cappuccino: {name:'Cappuccino', sell:0, buy:0},
+  espresso: {name:'Espresso', sell:0, buy:0},
+  mocha: {name:'Mocha', sell:0, buy:0},
+  cafe_irlandes: {name:'Café irlandés', sell:0, buy:0},
+  chocolatada_feliz: {name:'Chocolatada Feliz', sell:0, buy:0},
+  taza_navidad: {name:'Taza de navidad', sell:0, buy:0},
+  taza_galleta_jengibre: {name:'Taza galleta de jengibre', sell:0, buy:0},
+  agua_caliente: {name:'Agua caliente', sell:0, buy:0},
+  te_limon: {name:'Té de limón', sell:0, buy:0},
+  // Jugos / batidos / gaseosas
+  zumo_fresas: {name:'Zumo de Fresas', sell:0, buy:0},
+  malteada_banana: {name:'Malteada de Banana', sell:0, buy:0},
+  batido_frutas: {name:'Batido de frutas', sell:0, buy:0},
+  limonada: {name:'Limonada', sell:0, buy:0},
+  jugo_naranja: {name:'Jugo de naranja', sell:0, buy:0},
+  jugo_pina: {name:'Jugo de piña', sell:0, buy:0},
+  jugo_uvas: {name:'Jugo de uvas', sell:0, buy:0},
+  te_burbujas: {name:'Té de burbujas', sell:0, buy:0},
+  vaso_ecola: {name:'Vaso de E-Cola', sell:0, buy:0},
+  vaso_sprunk: {name:'Vaso de sprunk', sell:0, buy:0},
+  // Cócteles
+  coctel_pina_colada: {name:'Cóctel "Piña colada"', sell:0, buy:0},
+  coctel_cosmopolitan: {name:'Cóctel "Cosmopolitan"', sell:0, buy:0},
+  coctel_long_island: {name:'Cóctel "Long Island Iced Tea"', sell:0, buy:0},
+  coctel_margarita: {name:'Cóctel "Margarita"', sell:0, buy:0},
+  coctel_bloody_mary: {name:'Cóctel "Bloody Mary"', sell:0, buy:0},
+  coctel_whisky_rocas: {name:'Cóctel "Whisky en las Rocas"', sell:0, buy:0},
+  coctel_mojito: {name:'Cóctel "Mojito"', sell:0, buy:0},
+  coctel_manhattan: {name:'Cóctel "Manhattan"', sell:0, buy:0},
+  coctel_daiquiri: {name:'Cóctel "Daiquiri"', sell:0, buy:0},
+  copa_whisky: {name:'Copa de Whisky', sell:0, buy:0},
+  coctel_tequila: {name:'Cóctel "Tequila"', sell:0, buy:0},
+  coctel_tequila_sunrise: {name:'Cóctel "Tequila Sunrise"', sell:0, buy:0},
+  coctel_martini: {name:'Cóctel "Martini"', sell:0, buy:0},
+  // Packs de cerveza
+  pack6_blarneys: {name:'Pack de 6 cervezas "Blarneys"', sell:0, buy:0},
+  pack6_dusche: {name:'Pack de 6 cervezas "Dusche"', sell:0, buy:0},
+  pack6_patriot: {name:'Pack de 6 cervezas "Patriot"', sell:0, buy:0},
+  pack6_pisswasser: {name:'Pack de 6 cervezas "Pißwasser"', sell:0, buy:0},
+  pack6_afterlife: {name:'Pack de 6 cervezas "Afterlife"', sell:0, buy:0},
+  pack6_pride: {name:'Pack de 6 cervezas "Pride"', sell:0, buy:0},
+  pack6_barracho: {name:'Pack de 6 cervezas "Barracho"', sell:0, buy:0},
+  pack6_jakeys: {name:'Pack de 6 cervezas "Jakey\'s"', sell:0, buy:0},
+  pack6_logger: {name:'Pack de 6 cervezas "Logger"', sell:0, buy:0},
+  pack6_stronzo: {name:'Pack de 6 cervezas "Stronzo"', sell:0, buy:0},
+};
+
+function categoryDefaults(catId){
+  if(catId==='medicina') return DEFAULT_MEDICINE_ITEMS;
+  if(catId==='tecnologia') return DEFAULT_TECH_ITEMS;
+  if(catId==='bebidas') return DEFAULT_BEBIDAS_ITEMS;
+  if(catId==='comida') return DEFAULT_COMIDA_ITEMS;
+  if(catId==='herramientas') return DEFAULT_HERRAMIENTAS_ITEMS;
+  if(catId==='comida_elaborados') return DEFAULT_COMIDA_ELABORADOS_ITEMS;
+  if(catId==='bebidas_elaboradas') return DEFAULT_BEBIDAS_ELABORADAS_ITEMS;
+  return {};
+}
+
+// Medicina sigue viviendo en sus rutas viejas (para no tocar los datos que ya tenías).
+// Las categorías nuevas usan rutas genéricas bajo caja/products/{catId}/...
+function categoryPaths(catId){
+  if(catId === 'medicina'){
+    return { items:'caja/medicinaItems', stock:'caja/medicina', ventas:'caja/medicinaVentas' };
+  }
+  return { items:'caja/products/'+catId+'/items', stock:'caja/products/'+catId+'/stock', ventas:'caja/products/'+catId+'/ventas' };
+}
+
+function catName(catId){
+  const c = PRODUCT_CATEGORIES.find(c=>c.id===catId);
+  return c ? c.name : catId;
+}
+
+let PRODUCT_ITEMS = {};      // {catId: [{key,name,sell,buy}]}
+let productStockCache = {};  // {catId: {itemKey: {stock, ventaAcumulada, compraAcumulada}}}
+let productVentasCache = {}; // {catId: {pushId: {...}}}
+let showHiddenBySection = {}; // {sectionId: bool} — vista: mostrar u ocultar los ítems marcados como ocultos (solo en memoria)
+
+function fmtMoneyCaja(n){
+  return '$' + Math.round(n||0).toLocaleString('es-AR');
+}
+
+function fillDuenoSelects(){
+  const opts = ownersList().map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
+  document.getElementById('abastDueno').innerHTML = opts;
+  document.getElementById('ropaDueno').innerHTML = opts;
+  document.getElementById('gastoDueno').innerHTML = opts;
+}
+
+function renderOwnersForm(){
+  const box = document.getElementById('ownersFormWrap');
+  const owners = ownersList();
+  if(owners.length===0){ box.innerHTML = '<div class="admin-empty">Sin dueños cargados. Agregá el primero.</div>'; return; }
+  box.innerHTML = owners.map(o=>`
+    <div class="owner-row">
+      <input type="text" data-ownerid="${o.id}" value="${o.name}">
+      <button class="small-del-btn" data-remove="${o.id}">Quitar</button>
+    </div>
+  `).join('');
+  box.querySelectorAll('button[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.remove;
+      const saldo = deudasCache[id] || 0;
+      let extra = '';
+      if(Math.abs(saldo) >= 1){
+        extra = saldo>0
+          ? `\n\n⚠ ${ownerName(id)} tiene una DEUDA pendiente de ${fmtMoneyCaja(saldo)}. Al quitarlo se cancela; revisá el próximo reparto porque puede descuadrar.`
+          : `\n\n⚠ A ${ownerName(id)} le DEBÍAN ${fmtMoneyCaja(-saldo)}. Al quitarlo se cancela ese crédito; revisá el próximo reparto porque puede descuadrar.`;
+      }
+      if(!confirm(`¿Quitar a ${ownerName(id)}? Los registros viejos a su nombre van a mostrar "(dueño eliminado)".${extra}`)) return;
+      db.ref().update({ ['caja/owners/'+id]: null, ['caja/deudas/'+id]: null });
+    });
+  });
+}
+
+document.getElementById('addOwnerBtn').addEventListener('click', async ()=>{
+  await db.ref('caja/owners').push({name:'Nuevo dueño', createdAt: Date.now()});
+  showToast('Se agregó un dueño nuevo, cambiale el nombre y guardá.', '💾 Agregado');
+});
+
+function fillAbastCategorySelect(){
+  const sel = document.getElementById('abastCategoria');
+  if(!sel) return;
+  const buyables = PRODUCT_CATEGORIES.filter(c=>c.buyable);
+  const prevVal = sel.value;
+  sel.innerHTML = buyables.map(c=>`<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+  sel.value = buyables.some(c=>c.id===prevVal) ? prevVal : buyables[0].id;
+}
+
+function fillAbastItemSelect(){
+  const catSel = document.getElementById('abastCategoria');
+  const catId = catSel && catSel.value ? catSel.value : PRODUCT_CATEGORIES[0].id;
+  const items = (PRODUCT_ITEMS[catId] || []).filter(i=>!i.hidden); // los ocultos no aparecen en el desplegable
+  document.getElementById('abastItemSelect').innerHTML = items.map(i=>
+    `<option value="${i.key}">${i.name} (compra ${fmtMoneyCaja(i.buy)})</option>`
+  ).join('');
+}
+
+function updateAbastInversionPreview(){
+  const preview = document.getElementById('abastInversionPreview');
+  const catId = document.getElementById('abastCategoria').value;
+  const itemKey = document.getElementById('abastItemSelect').value;
+  const item = (PRODUCT_ITEMS[catId]||[]).find(i=>i.key===itemKey);
+  const qty = Number(document.getElementById('abastCantidad').value) || 0;
+  const inversion = item ? item.buy * qty : 0;
+  preview.innerHTML = `<span>Inversión calculada: <b>${fmtMoneyCaja(inversion)}</b></span>`;
+}
+
+document.getElementById('abastCategoria').addEventListener('change', ()=>{ fillAbastItemSelect(); updateAbastInversionPreview(); });
+document.getElementById('abastItemSelect').addEventListener('change', updateAbastInversionPreview);
+document.getElementById('abastCantidad').addEventListener('input', updateAbastInversionPreview);
+
+function startCajaListeners(){
+  if(cajaStarted) return;
+  cajaStarted = true;
+
+  renderProductCategorySections();
+  fillAbastCategorySelect();
+
+  PRODUCT_CATEGORIES.forEach(cat=>{
+    const paths = categoryPaths(cat.id);
+
+    // Migración: si todavía no existe la lista de ítems de esta categoría, la sembramos una vez
+    db.ref(paths.items).once('value').then(snap=>{
+      if(!snap.exists() && Object.keys(categoryDefaults(cat.id)).length>0){
+        db.ref(paths.items).set(categoryDefaults(cat.id));
+      }
+    });
+
+    db.ref(paths.items).on('value', snap=>{
+      const raw = snap.val() || {};
+      PRODUCT_ITEMS[cat.id] = Object.keys(raw).map(key=>({key, name:raw[key].name, sell:raw[key].sell||0, buy:raw[key].buy||0, order:raw[key].order, hidden:!!raw[key].hidden}));
+      fillAbastItemSelect();
+      updateAbastInversionPreview();
+      const section = sectionForCategory(cat.id);
+      if(section) renderProductTable(section);
+      renderCajaResumen();
+    });
+
+    db.ref(paths.stock).on('value', snap=>{
+      productStockCache[cat.id] = snap.val() || {};
+      const section = sectionForCategory(cat.id);
+      if(section) renderProductTable(section);
+      renderCajaResumen();
+    });
+
+    db.ref(paths.ventas).on('value', snap=>{
+      productVentasCache[cat.id] = snap.val() || {};
+      const section = sectionForCategory(cat.id);
+      if(section) renderProductVentasList(section);
+    });
+  });
+
+  // Migración: si existe el esquema viejo (2 dueños fijos) y todavía no hay 'owners', migramos una vez
+  db.ref('caja/owners').once('value').then(async ownersSnap=>{
+    if(ownersSnap.exists()) return;
+    const configSnap = await db.ref('caja/config').once('value');
+    const cfg = configSnap.val();
+    const seed = {};
+    seed['A'] = {name: (cfg && cfg.ownerAName) || 'Dueño A', createdAt: 1};
+    seed['B'] = {name: (cfg && cfg.ownerBName) || 'Dueño B', createdAt: 2};
+    await db.ref('caja/owners').set(seed);
+  });
+
+  db.ref('caja/owners').on('value', snap=>{
+    ownersCache = snap.val() || {};
+    renderOwnersForm();
+    fillDuenoSelects();
+    renderAbastTable();
+    renderGastosExtraTable();
+    renderRopaTable();
+    renderCajaResumen();
+  });
+
+  // Migración: si todavía no existe la lista de roperos, sembramos los 2 que ya había fijos
+  db.ref('caja/roperos').once('value').then(snap=>{
+    if(!snap.exists()){
+      db.ref('caja/roperos').set({
+        '1': {name:'Ropero 1', createdAt: 1},
+        '2': {name:'Ropero 2', createdAt: 2}
+      });
+    }
+  });
+
+  db.ref('caja/roperos').on('value', snap=>{
+    roperosCache = snap.val() || {};
+    fillRopaRoperoSelect();
+    renderRopaTable();
+  });
+
+  db.ref('caja/abastecimiento').on('value', snap=>{
+    abastCache = snap.val() || {};
+    renderAbastTable();
+    renderCajaResumen();
+  });
+
+  db.ref('caja/ropa').on('value', snap=>{
+    ropaCache = snap.val() || {};
+    renderRopaTable();
+    renderCajaResumen();
+  });
+
+  db.ref('caja/actual').on('value', snap=>{
+    cajaActualCache = snap.val() || {amount:0};
+    document.getElementById('cajaActualInput').value = cajaActualCache.amount || '';
+    renderCajaResumen();
+  });
+
+  db.ref('caja/gastosExtra').on('value', snap=>{
+    gastosExtraCache = snap.val() || {};
+    renderGastosExtraTable();
+    renderCajaResumen();
+  });
+
+  db.ref('caja/historial').on('value', snap=>{
+    cajaHistorialCache = snap.val() || {};
+    renderCajaHistorial(cajaHistorialCache);
+  });
+
+  db.ref('caja/deudas').on('value', snap=>{
+    deudasCache = snap.val() || {};
+    renderCajaResumen();
+  });
+}
+
+document.getElementById('saveOwnerNamesBtn').addEventListener('click', async ()=>{
+  const updates = {};
+  document.querySelectorAll('#ownersFormWrap input[data-ownerid]').forEach(input=>{
+    const id = input.dataset.ownerid;
+    const name = input.value.trim() || 'Sin nombre';
+    if(name !== ownerName(id)) updates['caja/owners/'+id+'/name'] = name;
+  });
+  if(Object.keys(updates).length===0) return;
+  await db.ref().update(updates);
+  showToast('Nombres de dueños actualizados.', '💾 Guardado');
+});
+
+document.getElementById('addAbastBtn').addEventListener('click', async ()=>{
+  const catId = document.getElementById('abastCategoria').value;
+  const owner = document.getElementById('abastDueno').value;
+  const notas = document.getElementById('abastNotas').value.trim();
+  const itemKey = document.getElementById('abastItemSelect').value;
+  const item = (PRODUCT_ITEMS[catId]||[]).find(i=>i.key===itemKey);
+  const qty = Number(document.getElementById('abastCantidad').value);
+  if(!item){ alert('Elegí un ítem.'); return; }
+  if(!qty || qty<=0){ alert('Poné una cantidad válida.'); return; }
+  const monto = item.buy * qty;
+
+  await db.ref('caja/abastecimiento').push({
+    date: new Date().toISOString().slice(0,10),
+    categoria: catName(catId), catId, owner, monto,
+    itemKey, itemName: item.name, qty,
+    notas,
+    settled: false,
+    timestamp: Date.now()
+  });
+
+  // Suma automáticamente al stock del ítem, en la ruta de su categoría
+  const paths = categoryPaths(catId);
+  await db.ref(paths.stock+'/'+itemKey).transaction(st=>{
+    st = st || {stock:0, ventaAcumulada:0, compraAcumulada:0};
+    st.stock = (st.stock||0) + qty;
+    st.compraAcumulada = (st.compraAcumulada||0) + monto;
+    return st;
+  });
+
+  document.getElementById('abastCantidad').value = '';
+  document.getElementById('abastNotas').value = '';
+  updateAbastInversionPreview();
+  showToast(`${item.name} x${qty} — ${fmtMoneyCaja(monto)}`, '💾 Compra agregada');
+});
+
+function renderAbastTable(){
+  const entries = Object.entries(abastCache).filter(([k,v])=>!v.settled);
+  document.getElementById('abastTotales').innerHTML = ownersList().map(o=>{
+    const total = entries.filter(([k,v])=>v.owner===o.id).reduce((s,[k,v])=>s+v.monto,0);
+    return `<span>Puesto por <b>${o.name}</b>: ${fmtMoneyCaja(total)}</span>`;
+  }).join('');
+  const box = document.getElementById('abastTableWrap');
+  if(entries.length===0){ box.innerHTML = '<div class="admin-empty">Sin registros pendientes.</div>'; return; }
+  const rows = entries.sort((a,b)=>b[1].timestamp-a[1].timestamp).map(([key,v])=>{
+    const detalle = v.itemKey ? `${v.itemName} x${v.qty}` : (v.notas||'');
+    return `
+    <tr>
+      <td>${v.date}</td><td>${v.categoria}</td>
+      <td>${ownerName(v.owner)}</td>
+      <td>${fmtMoneyCaja(v.monto)}</td><td>${detalle}</td>
+      <td><button class="small-del-btn" data-key="${key}">Borrar</button></td>
+    </tr>
+  `;}).join('');
+  box.innerHTML = `<table class="admin-table"><thead><tr><th>Fecha</th><th>Categoría</th><th>Dueño</th><th>Monto</th><th>Detalle</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  box.querySelectorAll('.small-del-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('¿Borrar este registro?')) return;
+      const entry = abastCache[btn.dataset.key];
+      if(entry && entry.itemKey){
+        // Revierte el stock que había sumado, en la ruta de su categoría (o Medicina si es un registro viejo sin catId)
+        const paths = categoryPaths(entry.catId || 'medicina');
+        await db.ref(paths.stock+'/'+entry.itemKey).transaction(st=>{
+          if(!st) return st;
+          st.stock = Math.max(0, (st.stock||0) - entry.qty);
+          st.compraAcumulada = Math.max(0, (st.compraAcumulada||0) - entry.monto);
+          return st;
+        });
+      }
+      db.ref('caja/abastecimiento/'+btn.dataset.key).remove();
+    });
+  });
+}
+
+document.getElementById('addRopaBtn').addEventListener('click', async ()=>{
+  const desc = document.getElementById('ropaDesc').value.trim();
+  const owner = document.getElementById('ropaDueno').value;
+  const ropero = document.getElementById('ropaRopero').value;
+  const precio = Number(document.getElementById('ropaPrecio').value);
+  const notas = document.getElementById('ropaNotas').value.trim();
+  if(!desc){ alert('Poné una descripción.'); return; }
+  if(!precio || precio<=0){ alert('Poné un precio válido.'); return; }
+  await db.ref('caja/ropa').push({
+    date: new Date().toISOString().slice(0,10),
+    desc, owner, precio, notas, ropero,
+    order: Date.now(),
+    status: 'Disponible',
+    timestamp: Date.now()
+  });
+  document.getElementById('ropaDesc').value = '';
+  document.getElementById('ropaPrecio').value = '';
+  document.getElementById('ropaNotas').value = '';
+  showToast(`${desc} — ${fmtMoneyCaja(precio)}`, '💾 Prenda agregada');
+});
+
+function renderRopaTable(){
+  const entries = Object.entries(ropaCache).filter(([k,v])=>v.status!=='Cobrado');
+  document.getElementById('ropaTotales').innerHTML = ownersList().map(o=>{
+    const vendida = entries.filter(([k,v])=>v.owner===o.id && v.status==='Vendido').reduce((s,[k,v])=>s+v.precio,0);
+    const stock = entries.filter(([k,v])=>v.owner===o.id && v.status==='Disponible').reduce((s,[k,v])=>s+v.precio,0);
+    return `<span>Vendido ${o.name}: ${fmtMoneyCaja(vendida)}</span> <span>Stock ${o.name}: ${fmtMoneyCaja(stock)}</span>`;
+  }).join(' ');
+
+  const wrap = document.getElementById('roperosWrap');
+  const roperos = roperosList();
+  if(roperos.length===0){ wrap.innerHTML = '<div class="admin-empty">Sin roperos cargados, agregá el primero.</div>'; return; }
+
+  wrap.innerHTML = roperos.map(r=>{
+    const enVenta = entries.filter(([k,v])=> String(v.ropero||'1')===String(r.id) && v.status==='Disponible').length;
+    return `
+    <h3 class="admin-subheading collapsible-header" data-target="ropero-sec-${r.id}"><span class="arrow">▾</span> ${r.name} <span style="font-weight:400;color:var(--text-dim);font-size:13px;">— ${enVenta} a la venta</span></h3>
+    <div class="collapsible-content" id="ropero-sec-${r.id}">
+      <div id="ropaTableWrap-${r.id}"></div>
+      <button class="small-del-btn" data-action="delropero" data-roperoid="${r.id}" data-name="${r.name}" style="margin-top:8px;">Borrar este ropero</button>
+    </div>
+  `;}).join('');
+  wireAllCollapsibles();
+
+  roperos.forEach(r => renderRoperoTable(r.id, entries, roperos));
+
+  wrap.querySelectorAll('button[data-action="delropero"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const roperoId = btn.dataset.roperoid;
+      const name = btn.dataset.name;
+      const tienePrendas = entries.some(([k,v])=> String(v.ropero||'1') === String(roperoId));
+      if(tienePrendas){
+        alert(`"${name}" todavía tiene prendas cargadas. Borralas o movelas a otro ropero antes de poder borrarlo.`);
+        return;
+      }
+      if(!confirm(`¿Borrar el ropero "${name}"? No se puede deshacer.`)) return;
+      db.ref('caja/roperos/'+roperoId).remove();
+      showToast(`"${name}" borrado.`, '🗑 Ropero borrado');
+    });
+  });
+}
+
+function renderRoperoTable(roperoId, allEntries, roperos){
+  const box = document.getElementById('ropaTableWrap-'+roperoId);
+  if(!box) return;
+  const entries = allEntries
+    .filter(([k,v])=> String(v.ropero||'1') === String(roperoId))
+    .sort((a,b)=> (a[1].order||a[1].timestamp) - (b[1].order||b[1].timestamp));
+
+  if(entries.length===0){ box.innerHTML = '<div class="admin-empty">Sin prendas en este ropero.</div>'; return; }
+
+  const otrosRoperos = roperos.filter(r=>r.id!==roperoId);
+  const rows = entries.map(([key,v], idx)=>`
+    <tr>
+      <td>${v.date}</td><td>${v.desc}</td>
+      <td>${ownerName(v.owner)}</td>
+      <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-action="editprecio" data-key="${key}" value="${v.precio}"></td><td>${v.status}</td><td>${v.notas||''}</td>
+      <td style="white-space:nowrap;">
+        <button class="small-del-btn" data-action="up" data-key="${key}" ${idx===0?'disabled':''}>↑</button>
+        <button class="small-del-btn" data-action="down" data-key="${key}" ${idx===entries.length-1?'disabled':''}>↓</button>
+        <button class="status-toggle-btn" data-key="${key}" data-tostatus="${v.status==='Disponible'?'Vendido':'Disponible'}">${v.status==='Disponible'?'Marcar vendido':'Marcar disponible'}</button>
+        ${otrosRoperos.length>0 ? `<select class="med-qty-input" data-action="move" data-key="${key}" style="width:auto;">
+          <option value="">Mover a...</option>
+          ${otrosRoperos.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}
+        </select>` : ''}
+        <button class="small-del-btn" data-action="del" data-key="${key}">Borrar</button>
+      </td>
+    </tr>
+  `).join('');
+  box.innerHTML = `<table class="admin-table"><thead><tr><th>Fecha</th><th>Prenda</th><th>Dueño</th><th>Precio</th><th>Estado</th><th>Notas</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  box.querySelectorAll('button[data-action="up"], button[data-action="down"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = entries.findIndex(([k])=>k===btn.dataset.key);
+      const swapIdx = btn.dataset.action==='up' ? idx-1 : idx+1;
+      if(swapIdx<0 || swapIdx>=entries.length) return;
+      const [keyA, entryA] = entries[idx];
+      const [keyB, entryB] = entries[swapIdx];
+      const orderA = entryA.order||entryA.timestamp, orderB = entryB.order||entryB.timestamp;
+      db.ref('caja/ropa/'+keyA+'/order').set(orderB);
+      db.ref('caja/ropa/'+keyB+'/order').set(orderA);
+    });
+  });
+  box.querySelectorAll('.status-toggle-btn[data-key]:not([data-action])').forEach(btn=>{
+    btn.addEventListener('click', ()=> db.ref('caja/ropa/'+btn.dataset.key+'/status').set(btn.dataset.tostatus));
+  });
+  box.querySelectorAll('input[data-action="editprecio"]').forEach(input=>{
+    input.addEventListener('change', ()=>{
+      const val = Number(input.value);
+      if(!val || val<=0){ alert('Poné un precio válido.'); input.value = entries.find(([k])=>k===input.dataset.key)[1].precio; return; }
+      db.ref('caja/ropa/'+input.dataset.key+'/precio').set(val);
+      showToast('Precio actualizado.', '💾 Guardado');
+    });
+  });
+  box.querySelectorAll('select[data-action="move"]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      if(!sel.value) return;
+      db.ref('caja/ropa/'+sel.dataset.key).update({ropero: sel.value, order: Date.now()});
+      showToast('Prenda movida de ropero.', '💾 Movido');
+    });
+  });
+  box.querySelectorAll('button[data-action="del"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(confirm('¿Borrar esta prenda?')) db.ref('caja/ropa/'+btn.dataset.key).remove();
+    });
+  });
+}
+
+document.getElementById('addRoperoBtn').addEventListener('click', async ()=>{
+  const nombre = prompt('Nombre del nuevo ropero:', `Ropero ${roperosList().length+1}`);
+  if(nombre === null) return;
+  const finalName = nombre.trim() || `Ropero ${roperosList().length+1}`;
+  await db.ref('caja/roperos').push({name: finalName, createdAt: Date.now()});
+  showToast(`Se agregó "${finalName}".`, '💾 Ropero agregado');
+});
+
+document.getElementById('saveCajaBtn').addEventListener('click', async ()=>{
+  const val = Number(document.getElementById('cajaActualInput').value);
+  if(isNaN(val) || val<0){ alert('Poné un monto válido.'); return; }
+  await db.ref('caja/actual').set({amount: val, updatedAt: Date.now()});
+  showToast(`Caja actualizada a ${fmtMoneyCaja(val)}.`, '💾 Guardado');
+});
+
+function renderProductCategorySections(){
+  const wrap = document.getElementById('productCategoriesWrap');
+  if(!wrap) return;
+  wrap.innerHTML = DISPLAY_SECTIONS.map(section=>{
+    const multiOrigen = section.sources.length > 1;
+    const origenOptions = section.sources.map(catId=>{
+      const c = PRODUCT_CATEGORIES.find(c=>c.id===catId);
+      return `<option value="${catId}">${c.emoji} ${c.name}</option>`;
+    }).join('');
+    return `
+    <div id="prod-block-${section.id}">
+      <h3 class="admin-subheading collapsible-header" data-target="prod-sec-${section.id}"><span class="arrow">▾</span> ${section.emoji} ${section.name} — stock y ventas</h3>
+      <div class="collapsible-content" id="prod-sec-${section.id}">
+        <p class="sub" style="margin:6px 0;">Editá precios directo en la tabla y usá el − / + del stock. Si el stock baja, cuenta como venta; si sube, es corrección manual.${multiOrigen ? ' La columna "Origen" indica de qué categoría de Abastecimiento viene cada ítem.' : ''}</p>
+        <div id="prod-table-${section.id}"></div>
+
+        <button class="dismiss-all-btn" data-action="toggle-newitem" data-sec="${section.id}" style="margin:8px 0;">+ Agregar ítem nuevo</button>
+        <div class="caja-form-row" id="prod-newitem-row-${section.id}" style="display:none;">
+          ${multiOrigen ? `<select class="prod-newitem-origen" data-sec="${section.id}">${origenOptions}</select>` : ''}
+          <input type="text" class="prod-newitem-name" data-sec="${section.id}" placeholder="Nombre del ítem">
+          <input type="number" class="prod-newitem-sell" data-sec="${section.id}" placeholder="Precio venta $ (opcional)">
+          <input type="number" class="prod-newitem-buy" data-sec="${section.id}" placeholder="Precio compra $">
+          <button class="pay-btn" data-action="add-item" data-sec="${section.id}">Crear ítem</button>
+        </div>
+
+        <div style="margin-top:14px;">
+          <button class="pay-btn" data-action="save" data-sec="${section.id}">Guardar cambios</button>
+        </div>
+
+        <div id="prod-ventaslist-${section.id}" style="margin-top:12px;"></div>
+        <div id="prod-totales-${section.id}" class="caja-totales"></div>
+      </div>
+    </div>
+  `;
+  }).join('');
+  wireAllCollapsibles();
+  applyCajaSectionVisibility();
+
+  wrap.querySelectorAll('button[data-action="toggle-newitem"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const row = document.getElementById('prod-newitem-row-'+btn.dataset.sec);
+      row.style.display = row.style.display==='none' ? 'flex' : 'none';
+    });
+  });
+
+  wrap.querySelectorAll('.prod-newitem-origen').forEach(sel=>{
+    const updatePlaceholders = ()=>{
+      const secId = sel.dataset.sec;
+      const sellInput = wrap.querySelector(`.prod-newitem-sell[data-sec="${secId}"]`);
+      const buyInput = wrap.querySelector(`.prod-newitem-buy[data-sec="${secId}"]`);
+      const rules = getItemRules(sel.value);
+      sellInput.placeholder = `Precio venta $ (${rules.requireSell ? 'obligatorio' : 'opcional'})`;
+      buyInput.placeholder = `Precio compra $ (${rules.requireBuy ? 'obligatorio' : 'opcional'})`;
+    };
+    sel.addEventListener('change', updatePlaceholders);
+    updatePlaceholders();
+  });
+
+  wrap.querySelectorAll('button[data-action="add-item"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const secId = btn.dataset.sec;
+      const section = DISPLAY_SECTIONS.find(s=>s.id===secId);
+      const origenSelect = wrap.querySelector(`.prod-newitem-origen[data-sec="${secId}"]`);
+      const catId = origenSelect ? origenSelect.value : section.sources[0];
+      const nameInput = wrap.querySelector(`.prod-newitem-name[data-sec="${secId}"]`);
+      const sellInput = wrap.querySelector(`.prod-newitem-sell[data-sec="${secId}"]`);
+      const buyInput = wrap.querySelector(`.prod-newitem-buy[data-sec="${secId}"]`);
+      const name = nameInput.value.trim();
+      const sell = Number(sellInput.value) || 0;
+      const buy = Number(buyInput.value) || 0;
+      if(!name){ alert('Poné un nombre.'); return; }
+      const rules = getItemRules(catId);
+      if(rules.requireSell && (!sell || sell<=0)){ alert('Poné un precio de venta válido.'); return; }
+      if(rules.requireBuy && (!buy || buy<=0)){ alert('Poné un precio de compra válido.'); return; }
+      const paths = categoryPaths(catId);
+      const newRef = db.ref(paths.items).push();
+      await newRef.set({name, sell, buy});
+      nameInput.value = ''; sellInput.value = ''; buyInput.value = '';
+      document.getElementById('prod-newitem-row-'+secId).style.display = 'none';
+      showToast(`${name}${buy?` — compra ${fmtMoneyCaja(buy)}`:''}${sell?` / venta ${fmtMoneyCaja(sell)}`:''}`, '💾 Ítem creado');
+    });
+  });
+
+  wrap.querySelectorAll('button[data-action="save"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const section = DISPLAY_SECTIONS.find(s=>s.id===btn.dataset.sec);
+      saveProductCategoryChanges(section);
+    });
+  });
+}
+
+function renderProductTable(section){
+  const box = document.getElementById('prod-table-'+section.id);
+  if(!box) return;
+  const allItems = getSectionItems(section);
+  const multiOrigen = section.sources.length > 1;
+  const showHidden = !!showHiddenBySection[section.id];
+  const hiddenCount = allItems.filter(i=>i.hidden).length;
+  const items = showHidden ? allItems : allItems.filter(i=>!i.hidden);
+
+  // Ojito al comienzo de la lista: ver / dejar de ver los ítems ocultos (NO los desoculta)
+  const eyeBar = hiddenCount>0
+    ? `<div style="margin-bottom:8px;"><button class="small-del-btn" data-action="toggleshowhidden" data-sec="${section.id}" title="${showHidden?'Dejar de ver los ocultos':'Ver los ítems ocultos'}">${showHidden?'👁️':'🙈'} ${hiddenCount} oculto${hiddenCount!==1?'s':''}</button></div>`
+    : '';
+
+  if(allItems.length===0){ box.innerHTML = '<div class="admin-empty">Sin ítems cargados todavía.</div>'; }
+  else if(items.length===0){ box.innerHTML = eyeBar + '<div class="admin-empty">Todos los ítems están ocultos. Tocá el ojito para verlos.</div>'; }
+  else{
+    const rows = items.map((item, idx)=>{
+      const stockCache = productStockCache[item.catId] || {};
+      const st = stockCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
+      const catInfo = PRODUCT_CATEGORIES.find(c=>c.id===item.catId);
+      return `
+        <tr${item.hidden?' style="opacity:.5;"':''}>
+          <td>${item.name}</td>
+          ${multiOrigen ? `<td><span class="tag" style="font-size:11px;">${catInfo ? catInfo.emoji+' '+catInfo.name : item.catId}</span></td>` : ''}
+          <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-cat="${item.catId}" data-key="${item.key}" data-field="sell" value="${item.sell}"></td>
+          <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-cat="${item.catId}" data-key="${item.key}" data-field="buy" value="${item.buy}"></td>
+          <td style="white-space:nowrap;">
+            <button class="small-del-btn" data-action="stockdown" data-cat="${item.catId}" data-key="${item.key}">−</button>
+            <input type="number" min="0" class="med-qty-input med-stock-input" style="width:70px;" data-cat="${item.catId}" data-key="${item.key}" value="${st.stock||0}">
+            <button class="small-del-btn" data-action="stockup" data-cat="${item.catId}" data-key="${item.key}">+</button>
+          </td>
+          <td style="white-space:nowrap;">
+            <button class="small-del-btn" data-action="itemup" data-cat="${item.catId}" data-key="${item.key}" ${idx===0?'disabled':''}>↑</button>
+            <button class="small-del-btn" data-action="itemdown" data-cat="${item.catId}" data-key="${item.key}" ${idx===items.length-1?'disabled':''}>↓</button>
+            <button class="small-del-btn" data-action="delitem" data-cat="${item.catId}" data-key="${item.key}">Quitar ítem</button>
+            <button class="small-del-btn" data-action="togglehide" data-cat="${item.catId}" data-key="${item.key}" title="${item.hidden?'Mostrar este ítem':'Ocultar este ítem'}">${item.hidden?'🙈':'👁️'}</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    box.innerHTML = eyeBar + `<table class="admin-table"><thead><tr><th>Ítem</th>${multiOrigen?'<th>Origen</th>':''}<th>Precio venta</th><th>Precio compra</th><th>Stock (− / +)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+
+    box.querySelectorAll('button[data-action="stockdown"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const input = box.querySelector(`.med-stock-input[data-cat="${btn.dataset.cat}"][data-key="${btn.dataset.key}"]`);
+        input.value = Math.max(0, (Number(input.value)||0) - 1);
+      });
+    });
+    box.querySelectorAll('button[data-action="stockup"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const input = box.querySelector(`.med-stock-input[data-cat="${btn.dataset.cat}"][data-key="${btn.dataset.key}"]`);
+        input.value = (Number(input.value)||0) + 1;
+      });
+    });
+    box.querySelectorAll('button[data-action="delitem"]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const catId = btn.dataset.cat;
+        const item = (PRODUCT_ITEMS[catId]||[]).find(i=>i.key===btn.dataset.key);
+        if(!confirm(`¿Quitar "${item.name}" de la lista? Se borra también su stock actual.`)) return;
+        const paths = categoryPaths(catId);
+        await db.ref().update({
+          [paths.items+'/'+btn.dataset.key]: null,
+          [paths.stock+'/'+btn.dataset.key]: null
+        });
+        showToast(`${item.name} eliminado.`, '🗑 Ítem borrado');
+      });
+    });
+
+    box.querySelectorAll('button[data-action="togglehide"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const item = (PRODUCT_ITEMS[btn.dataset.cat]||[]).find(i=>i.key===btn.dataset.key);
+        const nowHidden = !(item && item.hidden);
+        db.ref(categoryPaths(btn.dataset.cat).items+'/'+btn.dataset.key+'/hidden').set(nowHidden);
+        showToast(nowHidden ? `${item?item.name:'Ítem'} ocultado.` : `${item?item.name:'Ítem'} visible de nuevo.`, '👁️ Vista');
+      });
+    });
+
+    box.querySelectorAll('button[data-action="itemup"], button[data-action="itemdown"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = items.findIndex(i=> i.catId===btn.dataset.cat && i.key===btn.dataset.key);
+        const swapIdx = btn.dataset.action==='itemup' ? idx-1 : idx+1;
+        if(idx<0 || swapIdx<0 || swapIdx>=items.length) return;
+        const reordered = items.slice();
+        [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+        // Reasigna order secuencial (0,1,2...) a todos los ítems de la sección, en sus rutas
+        const updates = {};
+        reordered.forEach((it, i)=>{
+          updates[categoryPaths(it.catId).items+'/'+it.key+'/order'] = i;
+        });
+        db.ref().update(updates);
+      });
+    });
+  }
+
+  // Los totales cuentan TODOS los ítems (incluso los ocultos): la plata es plata
+  const ventaTotal = allItems.reduce((s,i)=> s+((productStockCache[i.catId]?.[i.key])?.ventaAcumulada||0), 0);
+  const compraTotal = allItems.reduce((s,i)=> s+((productStockCache[i.catId]?.[i.key])?.compraAcumulada||0), 0);
+  const totalesBox = document.getElementById('prod-totales-'+section.id);
+  if(totalesBox){
+    totalesBox.innerHTML = `
+      <span>Vendido esta ronda: <b>${fmtMoneyCaja(ventaTotal)}</b></span>
+      <span>Gastado en reposición esta ronda: <b>${fmtMoneyCaja(compraTotal)}</b></span>
+    `;
+  }
+
+  const showHiddenBtn = box.querySelector('button[data-action="toggleshowhidden"]');
+  if(showHiddenBtn){
+    showHiddenBtn.addEventListener('click', ()=>{
+      showHiddenBySection[section.id] = !showHiddenBySection[section.id];
+      renderProductTable(section);
+    });
+  }
+}
+
+async function saveProductCategoryChanges(section){
+  const items = getSectionItems(section);
+  const updates = {};
+  let changed = false;
+
+  items.forEach(item=>{
+    const paths = categoryPaths(item.catId);
+    const stockCache = productStockCache[item.catId] || {};
+    const st = stockCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
+    const sellInput = document.querySelector(`#prod-table-${section.id} .med-qty-input[data-cat="${item.catId}"][data-key="${item.key}"][data-field="sell"]`);
+    const buyInput = document.querySelector(`#prod-table-${section.id} .med-qty-input[data-cat="${item.catId}"][data-key="${item.key}"][data-field="buy"]`);
+    const stockInput = document.querySelector(`#prod-table-${section.id} .med-stock-input[data-cat="${item.catId}"][data-key="${item.key}"]`);
+    if(!sellInput || !buyInput || !stockInput) return;
+
+    const newSell = Number(sellInput.value) || 0;
+    const newBuy = Number(buyInput.value) || item.buy;
+    const newStock = Number(stockInput.value) || 0;
+    const oldStock = st.stock || 0;
+    const diff = newStock - oldStock;
+
+    let ventaAcumulada = st.ventaAcumulada || 0;
+    if(diff < 0){
+      // bajó el stock a mano: se cuenta como venta
+      const qtyVendida = -diff;
+      const montoVenta = qtyVendida * item.sell;
+      ventaAcumulada += montoVenta;
+      changed = true;
+      const ventaRef = db.ref(paths.ventas).push();
+      updates[paths.ventas+'/'+ventaRef.key] = {
+        itemKey: item.key, itemName: item.name, qty: qtyVendida, monto: montoVenta, timestamp: Date.now()
+      };
+    }
+    // si diff > 0, es una corrección manual de stock: no se cuenta como venta ni como compra
+
+    if(newSell !== item.sell || newBuy !== item.buy){
+      changed = true;
+      updates[paths.items+'/'+item.key+'/sell'] = newSell;
+      updates[paths.items+'/'+item.key+'/buy'] = newBuy;
+    }
+    if(diff !== 0){
+      changed = true;
+      updates[paths.stock+'/'+item.key+'/stock'] = newStock;
+      updates[paths.stock+'/'+item.key+'/ventaAcumulada'] = ventaAcumulada;
+    }
+  });
+
+  if(!changed){ showToast('No había cambios para guardar.', 'ℹ️ Sin cambios'); return; }
+  await db.ref().update(updates);
+  showToast(`Stock y precios de ${section.name} actualizados.`, '💾 Guardado');
+}
+
+function renderProductVentasList(section){
+  const box = document.getElementById('prod-ventaslist-'+section.id);
+  if(!box) return;
+  let entries = [];
+  section.sources.forEach(catId=>{
+    const cache = productVentasCache[catId] || {};
+    Object.entries(cache).forEach(([key,v])=> entries.push({key, catId, ...v}));
+  });
+  if(entries.length===0){ box.innerHTML = ''; return; }
+  entries.sort((a,b)=> b.timestamp - a.timestamp);
+  box.innerHTML = `<div class="payments-list">${entries.map(v=>`
+    <div class="payment-row">
+      <span>${v.itemName} — ${v.qty} un. — ${fmtMoneyCaja(v.monto)}</span>
+      <button class="small-del-btn" data-key="${v.key}" data-cat="${v.catId}" data-itemkey="${v.itemKey}" data-monto="${v.monto}">Borrar</button>
+    </div>
+  `).join('')}</div>`;
+
+  box.querySelectorAll('.small-del-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('¿Borrar este registro de venta? El stock no se toca, solo se descuenta la plata y se borra el registro.')) return;
+      const {key, cat, itemkey, monto} = btn.dataset;
+      const paths = categoryPaths(cat);
+      await db.ref(paths.stock+'/'+itemkey).transaction(st=>{
+        st = st || {stock:0, ventaAcumulada:0, compraAcumulada:0};
+        st.ventaAcumulada = Math.max(0, (st.ventaAcumulada||0) - Number(monto));
+        return st;
+      });
+      await db.ref(paths.ventas+'/'+key).remove();
+    });
+  });
+}
+
+document.getElementById('addGastoBtn').addEventListener('click', async ()=>{
+  const nombre = document.getElementById('gastoNombre').value.trim();
+  const owner = document.getElementById('gastoDueno').value;
+  const monto = Number(document.getElementById('gastoMonto').value);
+  if(!nombre){ alert('Poné un nombre para el gasto.'); return; }
+  if(!monto || monto<=0){ alert('Poné un monto válido.'); return; }
+  await db.ref('caja/gastosExtra').push({
+    date: new Date().toISOString().slice(0,10),
+    nombre, owner, monto,
+    settled: false,
+    timestamp: Date.now()
+  });
+  document.getElementById('gastoNombre').value = '';
+  document.getElementById('gastoMonto').value = '';
+  showToast(`${nombre} — ${fmtMoneyCaja(monto)}`, '💾 Gasto agregado');
+});
+
+function renderGastosExtraTable(){
+  const entries = Object.entries(gastosExtraCache).filter(([k,v])=>!v.settled);
+  document.getElementById('gastosTotales').innerHTML = ownersList().map(o=>{
+    const total = entries.filter(([k,v])=>v.owner===o.id).reduce((s,[k,v])=>s+v.monto,0);
+    return `<span>Puesto por <b>${o.name}</b>: ${fmtMoneyCaja(total)}</span>`;
+  }).join('');
+  const box = document.getElementById('gastosTableWrap');
+  if(entries.length===0){ box.innerHTML = '<div class="admin-empty">Sin gastos pendientes.</div>'; return; }
+  const rows = entries.sort((a,b)=>b[1].timestamp-a[1].timestamp).map(([key,v])=>`
+    <tr>
+      <td>${v.date}</td><td>${v.nombre}</td>
+      <td>${ownerName(v.owner)}</td>
+      <td>${fmtMoneyCaja(v.monto)}</td>
+      <td><button class="small-del-btn" data-key="${key}">Borrar</button></td>
+    </tr>
+  `).join('');
+  box.innerHTML = `<table class="admin-table"><thead><tr><th>Fecha</th><th>Nombre</th><th>Dueño</th><th>Monto</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  box.querySelectorAll('.small-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(confirm('¿Borrar este gasto?')) db.ref('caja/gastosExtra/'+btn.dataset.key).remove();
+    });
+  });
+}
+
+function computeCajaReparto(){
+  const owners = ownersList();
+  const n = owners.length || 1;
+
+  const abastEntries = Object.values(abastCache).filter(v=>!v.settled);
+  const totalAbast = abastEntries.reduce((s,v)=>s+v.monto,0);
+  const abastJustPart = totalAbast/n;
+
+  const gastoEntries = Object.values(gastosExtraCache).filter(v=>!v.settled);
+  const totalGastos = gastoEntries.reduce((s,v)=>s+v.monto,0);
+  const gastoJustPart = totalGastos/n;
+
+  const ropaEntries = Object.values(ropaCache).filter(v=>v.status!=='Cobrado');
+  const productVentaTotal = PRODUCT_CATEGORIES.reduce((sum, cat)=>{
+    const items = PRODUCT_ITEMS[cat.id] || [];
+    const stockCache = productStockCache[cat.id] || {};
+    return sum + items.reduce((s,i)=> s + ((stockCache[i.key]||{}).ventaAcumulada||0), 0);
+  }, 0);
+  const cajaActual = cajaActualCache.amount || 0;
+
+  const vendidaTotalTodos = ropaEntries.filter(v=>v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
+  const cajaRestante = Math.max(0, cajaActual - vendidaTotalTodos);
+  const pasivoEstimado = cajaRestante - productVentaTotal;
+  const gananciaPorDueno = cajaRestante / n;
+
+  const deudaMode = !!siteConfig.deudaMode;
+
+  // saldoPrevio y nuevoSaldo: convención + = el dueño DEBE, − = LE DEBEN (crédito a favor)
+  const perOwner = owners.map(o=>{
+    const vendida = ropaEntries.filter(v=>v.owner===o.id && v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
+    const puestoAbast = abastEntries.filter(v=>v.owner===o.id).reduce((s,v)=>s+v.monto,0);
+    const abastAjuste = puestoAbast - abastJustPart; // + le deben, − debe poner
+    const puestoGasto = gastoEntries.filter(v=>v.owner===o.id).reduce((s,v)=>s+v.monto,0);
+    const gastoAjuste = puestoGasto - gastoJustPart;
+    const retiroBruto = vendida + gananciaPorDueno + abastAjuste + gastoAjuste;
+    const saldoPrevio = deudaMode ? (deudasCache[o.id] || 0) : 0;
+    const ajustado = retiroBruto - saldoPrevio; // lo que le tocaría este cierre ya saldando lo anterior
+    return {id:o.id, name:o.name, vendida, puestoAbast, abastAjuste, puestoGasto, gastoAjuste, retiroBruto, saldoPrevio, ajustado, retiro:ajustado, nuevoSaldo:0};
+  });
+
+  if(deudaMode){
+    // Difiere AMBOS lados para que la plata cuadre con la caja real:
+    // los negativos retiran 0 y quedan debiendo; los positivos cobran solo lo que hay
+    // (reducidos a prorrata) y el resto les queda a favor.
+    const posSum = perOwner.reduce((s,o)=> s + (o.ajustado>0 ? o.ajustado : 0), 0);
+    const D = perOwner.reduce((s,o)=> s + (o.ajustado<0 ? -o.ajustado : 0), 0); // total diferido
+    perOwner.forEach(o=>{
+      if(o.ajustado < 0){
+        o.retiro = 0;
+        o.nuevoSaldo = -o.ajustado;            // queda debiendo (positivo)
+      } else if(o.ajustado > 0 && posSum > 0){
+        const credito = D * (o.ajustado / posSum);
+        o.retiro = o.ajustado - credito;
+        o.nuevoSaldo = -credito;               // le queda a favor (negativo)
+      } else {
+        o.retiro = 0;
+        o.nuevoSaldo = 0;
+      }
+    });
+  }
+
+  return {owners: perOwner, n, totalAbast, abastJustPart, totalGastos, gastoJustPart, productVentaTotal, cajaActual, cajaRestante, pasivoEstimado, gananciaPorDueno, deudaMode};
+}
+
+function fmtSigned(n){
+  const sign = n>0 ? '+' : (n<0 ? '−' : '');
+  return sign + fmtMoneyCaja(Math.abs(n));
+}
+
+function renderCajaResumen(){
+  const box = document.getElementById('cajaResumen');
+  if(!box) return;
+  const r = computeCajaReparto();
+  if(r.owners.length===0){ box.innerHTML = '<div class="admin-empty">Cargá al menos un dueño arriba.</div>'; return; }
+  let html = `
+    <div class="r-row"><span>Caja restante después de ropa</span><span>${fmtMoneyCaja(r.cajaRestante)}</span></div>
+    <div class="r-row"><span>— Explicado por venta de productos</span><span>${fmtMoneyCaja(r.productVentaTotal)}</span></div>
+    <div class="r-row"><span>— Ingreso pasivo estimado (resto sin explicar)</span><span>${fmtMoneyCaja(r.pasivoEstimado)}</span></div>
+    <div class="r-row"><span>Ganancia por dueño (productos + pasivo, repartido entre ${r.n})</span><span>${fmtMoneyCaja(r.gananciaPorDueno)}</span></div>
+  `;
+  r.owners.forEach(o=>{
+    html += `<div class="r-row"><span>Ropa vendida a pagar a ${o.name}</span><span>${fmtMoneyCaja(o.vendida)}</span></div>`;
+    html += `<div class="r-row"><span>Ajuste de abastecimiento — ${o.name}</span><span>${fmtSigned(o.abastAjuste)}</span></div>`;
+    html += `<div class="r-row"><span>Ajuste de gastos extraordinarios — ${o.name}</span><span>${fmtSigned(o.gastoAjuste)}</span></div>`;
+  });
+  r.owners.forEach(o=>{
+    if(r.deudaMode && o.saldoPrevio>0){
+      html += `<div class="r-row"><span>Deuda arrastrada del cierre anterior — ${o.name}</span><span>${fmtSigned(-o.saldoPrevio)}</span></div>`;
+    } else if(r.deudaMode && o.saldoPrevio<0){
+      html += `<div class="r-row"><span>A favor arrastrado (le debían) — ${o.name}</span><span>${fmtSigned(-o.saldoPrevio)}</span></div>`;
+    }
+    html += `<div class="r-row total"><span>${o.name} retira</span><span>${fmtMoneyCaja(o.retiro)}</span></div>`;
+    if(r.deudaMode && o.nuevoSaldo>0){
+      html += `<div class="r-row"><span>↳ Queda debiendo para el próximo cierre — ${o.name}</span><span>${fmtMoneyCaja(o.nuevoSaldo)}</span></div>`;
+    } else if(r.deudaMode && o.nuevoSaldo<0){
+      html += `<div class="r-row"><span>↳ Le queda a favor para el próximo cierre — ${o.name}</span><span>${fmtMoneyCaja(-o.nuevoSaldo)}</span></div>`;
+    }
+  });
+  box.innerHTML = html;
+}
+
+document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
+  const r = computeCajaReparto();
+  if(r.owners.length===0){ alert('Cargá al menos un dueño antes de repartir.'); return; }
+  const detalle = r.owners.map(o=>{
+    let line = `${o.name} retira: ${fmtMoneyCaja(o.retiro)}`;
+    if(r.deudaMode && o.nuevoSaldo>0) line += ` (queda debiendo ${fmtMoneyCaja(o.nuevoSaldo)})`;
+    else if(r.deudaMode && o.nuevoSaldo<0) line += ` (le queda a favor ${fmtMoneyCaja(-o.nuevoSaldo)})`;
+    return line;
+  }).join('\n');
+  const extra = r.deudaMode
+    ? '\n\nModo deuda activado: nadie retira en negativo. Los faltantes quedan como deuda y lo que invirtió de más queda a favor; todo se salda en el próximo cierre.'
+    : '';
+  const msg = `¿Confirmás el reparto?\n\n${detalle}\n\nEsto marca la ropa vendida como cobrada, salda las deudas de abastecimiento y gastos extraordinarios actuales, y pone la caja en $0.${extra}`;
+  if(!confirm(msg)) return;
+
+  const retiros = {};
+  r.owners.forEach(o=>{ retiros[o.id] = {name:o.name, monto:o.retiro}; });
+
+  await db.ref('caja/historial').push({
+    date: new Date().toISOString().slice(0,10),
+    cajaMonto: r.cajaActual,
+    retiros,
+    hechoPor: currentUser.username,
+    timestamp: Date.now()
+  });
+
+  // Marcar ropa vendida como cobrada
+  const updates = {};
+  Object.entries(ropaCache).forEach(([key,v])=>{
+    if(v.status==='Vendido') updates['caja/ropa/'+key+'/status'] = 'Cobrado';
+  });
+  // Saldar deudas de abastecimiento actuales
+  Object.entries(abastCache).forEach(([key,v])=>{
+    if(!v.settled) updates['caja/abastecimiento/'+key+'/settled'] = true;
+  });
+  // Saldar deudas de gastos extraordinarios actuales
+  Object.entries(gastosExtraCache).forEach(([key,v])=>{
+    if(!v.settled) updates['caja/gastosExtra/'+key+'/settled'] = true;
+  });
+  // Reiniciar lo vendido/comprado de cada categoría de productos esta ronda (el stock físico no se toca)
+  PRODUCT_CATEGORIES.forEach(cat=>{
+    const items = PRODUCT_ITEMS[cat.id] || [];
+    const stockCache = productStockCache[cat.id] || {};
+    const paths = categoryPaths(cat.id);
+    items.forEach(item=>{
+      const st = stockCache[item.key];
+      if(st) updates[paths.stock+'/'+item.key] = {stock: st.stock||0, ventaAcumulada: 0, compraAcumulada: 0};
+    });
+    updates[paths.ventas] = null;
+  });
+  // Guardar/actualizar saldos arrastrados (solo en modo deuda). + = debe, − = le deben.
+  if(r.deudaMode){
+    r.owners.forEach(o=>{
+      updates['caja/deudas/'+o.id] = Math.abs(o.nuevoSaldo) >= 1 ? Math.round(o.nuevoSaldo) : null;
+    });
+  }
+  updates['caja/actual'] = {amount:0, updatedAt: Date.now()};
+  await db.ref().update(updates);
+  showToast('Reparto registrado y caja reiniciada.', '💾 Listo');
+});
+
+function renderCajaHistorial(data){
+  const box = document.getElementById('cajaHistorial');
+  const items = Object.entries(data).map(([key,v])=>({key, ...v})).sort((a,b)=> b.timestamp - a.timestamp).slice(0,20);
+  if(items.length===0){ box.innerHTML = '<div class="admin-empty">Todavía no se registró ningún reparto.</div>'; return; }
+  box.innerHTML = `<div class="payments-list">${items.map(h=>{
+    const date = new Date(h.timestamp).toLocaleString('es-AR');
+    let detalle;
+    if(h.retiros){
+      detalle = Object.values(h.retiros).map(r=>`<b>${r.name}</b>: ${fmtMoneyCaja(r.monto)}`).join(' / ');
+    } else {
+      // Reparto viejo, guardado con el esquema fijo de 2 dueños
+      detalle = `<b>${h.ownerAName||'Dueño A'}</b>: ${fmtMoneyCaja(h.retiroA)} / <b>${h.ownerBName||'Dueño B'}</b>: ${fmtMoneyCaja(h.retiroB)}`;
+    }
+    return `<div class="payment-row"><span>Caja ${fmtMoneyCaja(h.cajaMonto)} — ${detalle}</span><span style="display:flex;align-items:center;gap:10px;">${date} (${h.hechoPor}) <button class="dismiss-btn" data-key="${h.key}">Borrar</button></span></div>`;
+  }).join('')}</div>`;
+  box.querySelectorAll('.dismiss-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm('¿Borrar este registro del historial de repartos? Es solo el registro, no revierte pagos ya hechos.')) return;
+      db.ref('caja/historial/'+btn.dataset.key).remove();
+    });
+  });
+}
+
+let collapsePrefsCache = {};
+
+function wireCollapsibleHeader(header){
+  if(header.dataset.wired) return;
+  header.dataset.wired = '1';
+  const target = document.getElementById(header.dataset.target);
+  if(target && collapsePrefsCache[header.dataset.target]){
+    target.classList.add('collapsed');
+    header.classList.add('collapsed');
+  }
+  header.addEventListener('click', ()=>{
+    const t = document.getElementById(header.dataset.target);
+    if(!t) return;
+    const nowCollapsed = t.classList.toggle('collapsed');
+    header.classList.toggle('collapsed', nowCollapsed);
+    collapsePrefsCache[header.dataset.target] = nowCollapsed;
+    if(currentUser){
+      db.ref('uiPrefs/'+currentUser.uid+'/collapsed/'+header.dataset.target).set(nowCollapsed);
+    }
+  });
+}
+
+function wireAllCollapsibles(){
+  document.querySelectorAll('.collapsible-header').forEach(wireCollapsibleHeader);
+}
+
+wireAllCollapsibles();
+
+async function applyStoredCollapseState(){
+  if(!currentUser) return;
+  try{
+    const snap = await db.ref('uiPrefs/'+currentUser.uid+'/collapsed').once('value');
+    collapsePrefsCache = snap.val() || {};
+  }catch(e){ return; }
+  document.querySelectorAll('.collapsible-header').forEach(header=>{
+    const target = document.getElementById(header.dataset.target);
+    if(!target) return;
+    const shouldCollapse = !!collapsePrefsCache[header.dataset.target];
+    target.classList.toggle('collapsed', shouldCollapse);
+    header.classList.toggle('collapsed', shouldCollapse);
+  });
+}
+</script>
+</body>
+</html>
