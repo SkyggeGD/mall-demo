@@ -767,9 +767,9 @@ const JOBS = {
     {id:'ab2', name:'Abastecimiento administrativo', recorrido:'Fuera → Fuera', cd:180, aporte:12, pay:1500, req:'Ir en vehículo con mínimo 3 Kg libres en el maletero.', desc:['Iniciar la misión (marca un punto en el mapa)','Ir en vehículo y presionar E para recoger la caja','Volver al Mall — entrada principal, arriba','Sacar la caja del maletero y dejarla en el punto']},
     {id:'ab3', name:'Abastecimiento de emergencia', recorrido:'Fuera → Fuera', cd:120, aporte:12, pay:1500, req:'Ninguno', desc:'Igual a Abastecimiento administrativo: recoger caja en vehículo y entregarla.'},
     {id:'ab4', name:'Devolución al proveedor', recorrido:'Dentro → Fuera', cd:180, aporte:12, pay:2000, req:'Ninguno (la caja de 3 Kg se lleva en la mano, no hace falta vehículo).', desc:'Buscar una caja entre los muebles del Mall y llevarla al punto marcado en el mapa (suele quedar lejos).'},
-    {id:'ab5', name:'Abastecimiento diario', recorrido:'—', cd:120, aporte:8, pay:1000, req:'Profesión de Transportista + vehículo "Burrito".', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
-    {id:'ab6', name:'Abastecimiento semanal', recorrido:'—', cd:300, aporte:20, pay:1000, req:'Profesión de Transportista + vehículo "Burrito".', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
-    {id:'ab7', name:'Reparación de máquinas expendedoras', recorrido:'—', cd:180, aporte:9, pay:500, req:'Profesión de Mecánico.', desc:'Detalle exacto de cómo se hace: pendiente.'},
+    {id:'ab5', name:'Abastecimiento diario', recorrido:'Fuera → Fuera', cd:120, aporte:8, pay:1000, req:'Profesión de Transportista + vehículo "Burrito".', desc:['Iniciar la misión (marca un punto en el mapa)','Ir en vehículo y presionar E para recoger la caja','Volver al Mall','Sacar la caja del maletero y dejarla en el punto'], instances:2},
+    {id:'ab6', name:'Abastecimiento semanal', recorrido:'Fuera → Fuera', cd:300, aporte:20, pay:1000, req:'Profesión de Transportista + vehículo "Burrito".', desc:['Iniciar la misión (marca un punto en el mapa)','Ir en vehículo y presionar E para recoger la caja','Volver al Mall','Sacar la caja del maletero y dejarla en el punto'], instances:2},
+    {id:'ab7', name:'Reparación de máquinas expendedoras', recorrido:'Dentro → Dentro', cd:180, aporte:9, pay:500, req:'Profesión de Mecánico.', desc:'Detalle exacto de cómo se hace: pendiente.'},
   ],
   limpieza:[
     {id:'li1', name:'Limpieza particular', recorrido:'Dentro → Dentro', cd:120, aporte:6, pay:1000, req:'Ninguno', desc:'Ir limpiando los muebles.'},
@@ -783,9 +783,9 @@ const JOBS = {
   seguridad:[
     {id:'se1', name:'Expulsar alborotador', recorrido:'Dentro → Dentro', cd:60, aporte:10, pay:500, req:'Ninguno', desc:'Interactuar con un NPC (misión sencilla).'},
     {id:'se2', name:'Ingreso de efectivo', recorrido:'Dentro → Fuera', cd:120, aporte:6, pay:1500, req:'Ninguno', desc:'Interactuar con la caja fuerte hasta obtener una bolsa de dinero, y llevarla al banco indicado en el mapa.', instances:2},
-    {id:'se3', name:'Revisión de seguridad', recorrido:'—', cd:60, aporte:8, pay:1000, req:'Pertenecer a una empresa de seguridad.', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
-    {id:'se4', name:'Transporte de valores', recorrido:'—', cd:120, aporte:12, pay:1500, req:'Pertenecer a una empresa de seguridad.', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
-    {id:'se5', name:'Depósito programado', recorrido:'—', cd:120, aporte:10, pay:1000, req:'Pertenecer a una empresa de seguridad.', desc:'Detalle exacto de cómo se hace: pendiente.'},
+    {id:'se3', name:'Revisión de seguridad', recorrido:'Dentro → Dentro', cd:60, aporte:8, pay:1000, req:'Pertenecer a una empresa de seguridad.', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
+    {id:'se4', name:'Transporte de valores', recorrido:'Dentro → Fuera', cd:120, aporte:12, pay:1500, req:'Pertenecer a una empresa de seguridad.', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
+    {id:'se5', name:'Depósito programado', recorrido:'Dentro → Fuera', cd:120, aporte:10, pay:1000, req:'Pertenecer a una empresa de seguridad.', desc:'Detalle exacto de cómo se hace: pendiente.'},
     {id:'se6', name:'Reparación de máquinas registradoras', recorrido:'—', cd:120, aporte:4, pay:500, req:'Profesión de Mecánico.', desc:'Detalle exacto de cómo se hace: pendiente.'},
   ],
   contabilidad:[
@@ -801,10 +801,10 @@ const JOBS = {
     {id:'ad2', name:'Registro de sanidad', recorrido:'Fuera → Fuera', cd:1080, aporte:25, pay:1000, req:'Ninguno', desc:'Ir a un hospital.'},
     {id:'ad3', name:'Registro de negocio', recorrido:'Fuera → Fuera', cd:1440, aporte:30, pay:1000, req:'Ninguno', desc:'Ir a un banco.'},
     {id:'ad4a', name:'Identificación fiscal', recorrido:'Dentro → Fuera', cd:2160, aporte:50, pay:1500, req:'Ninguno', desc:'Buscar los papeles dentro del Mall y llevarlos a un punto marcado afuera.'},
-    {id:'ad4b', name:'Mantenimiento de sistemas', recorrido:'—', cd:120, aporte:10, pay:1500, req:'Pertenecer a una empresa de limpieza.', desc:'Detalle exacto de cómo se hace: pendiente.', instances:2},
+    {id:'ad4b', name:'Mantenimiento de sistemas', recorrido:'Dentro → Dentro', cd:120, aporte:10, pay:1500, req:'Pertenecer a una empresa de limpieza.', desc:'Necesitás una tablet. Recorrer los distintos muebles con la tablet, arreglándolos.', instances:2},
     {id:'ad4c', name:'Inspección de telecomunicaciones', recorrido:'—', blocked:'Requiere el oficio especial "WeazelNews" — poco frecuente, puede no estar disponible en el server. Cooldown: cada 5 días. Aporte: sin confirmar.'},
     {id:'ad4d', name:'Inspección general', recorrido:'—', blocked:'Requiere una inspección del gobierno (staff del server), no la puede iniciar un jugador. Cooldown: cada 5 días. Aporte: sin confirmar.'},
-    {id:'ad5', name:'Certificados de equipos electrónicos', recorrido:'—', cd:120, aporte:5, pay:500, req:'Profesión de Mecánico.', desc:'Detalle exacto de cómo se hace: pendiente.'},
+    {id:'ad5', name:'Certificados de equipos electrónicos', recorrido:'Dentro → Dentro', cd:120, aporte:5, pay:500, req:'Profesión de Mecánico.', desc:'Detalle exacto de cómo se hace: pendiente.'},
   ],
 };
 
