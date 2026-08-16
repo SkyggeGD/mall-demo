@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Logística de Mall — GTA Hub RP</title>
+<title>Demo - Logística del Mall</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <!-- ===== MODO DEMO: Firebase SIMULADO (memoria + localStorage) con datos de ejemplo. Persiste al recargar y sincroniza entre pestañas. Sin login ni internet. Este archivo ES la demo pública. ===== -->
@@ -13,8 +13,8 @@
   const SEED = {
     users: { demo: {username:'Marto', role:'owner', createdAt:1} },
     siteConfig: {
-      title: 'FR Service Elite — Logística del Mall',
-      subtitle: 'Panel privado para administrar el negocio: trabajos, caja, stock y ropa. Todos los dueños conectados en tiempo real.',
+      title: 'Demo - Logística del Mall',
+      subtitle: 'Versión DEMO de prueba. Ojo: los datos que cargues acá se guardan solo en ESTE navegador y NO se comparten entre computadoras distintas. En la versión real, todos los dueños se sincronizan en tiempo real.',
       tips: 'Encadená trabajos de distinta categoría mientras esperás los cooldowns.\nAgrupá los que van "Fuera" en una misma vuelta para no perder tiempo.\nRevisá el espacio del maletero antes de arrancar una misión con vehículo.',
       deudaMode: true,
       hiddenSections: {}
@@ -60,7 +60,7 @@
     }
   };
   // ===== Persistencia (localStorage) + sincronización entre pestañas =====
-  const DKEY='mallDemoDB', DVER='2026-08-16c';
+  const DKEY='mallDemoDB', DVER='2026-08-16d';
   function load(){ try{ const raw=localStorage.getItem(DKEY); if(raw && localStorage.getItem(DKEY+'_v')===DVER) return JSON.parse(raw); }catch(e){} return JSON.parse(JSON.stringify(SEED)); }
   let DB = load();
   function persist(){ try{ localStorage.setItem(DKEY, JSON.stringify(DB)); localStorage.setItem(DKEY+'_v', DVER); }catch(e){} }
