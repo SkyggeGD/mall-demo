@@ -210,10 +210,9 @@
     <div class="step-num">2</div>
     <div class="step-body">
       <h3>Activar el inicio de sesión</h3>
-      <p>En el menú de la izquierda (<strong>Compilación / Build</strong>) entrá a <span class="path">Authentication</span> y tocá <strong>“Comenzar”</strong>.</p>
+      <p>En el menú de la izquierda entrá a <span class="path">Seguridad</span> → <span class="path">Authentication</span> y tocá <strong>“Comenzar”</strong>.</p>
       <ul>
-        <li>Abrí la pestaña <strong>“Sign-in method”</strong> (Método de acceso).</li>
-        <li>Elegí <strong>“Correo electrónico/contraseña”</strong>.</li>
+        <li>Se abre directo en <strong>“Método de acceso”</strong>. Elegí <strong>“Correo electrónico/contraseña”</strong>.</li>
         <li>Activá la <strong>primera opción</strong> (no hace falta el enlace por email) y <strong>Guardar</strong>.</li>
       </ul>
     </div>
@@ -223,8 +222,7 @@
     <div class="step-num">3</div>
     <div class="step-body">
       <h3>Crear la base de datos</h3>
-      <p>En el menú <strong>Compilación / Build</strong> entrá a <span class="path">Realtime Database</span> y tocá <strong>“Crear base de datos”</strong>.</p>
-      <div class="callout warn"><span class="tag">⚠️ Ojo</span> — tiene que ser <b>Realtime Database</b>, <b>NO</b> “Firestore Database”. Son parecidas pero la app usa Realtime Database. Si creaste la que no era, no pasa nada: dejala y creá la correcta.</div>
+      <p>En el menú de la izquierda entrá a <span class="path">Bases de datos y almacenamiento</span> → <span class="path">Realtime Database</span> y tocá <strong>“Crear base de datos”</strong>. <em>(Ojo: elegí <strong>Realtime Database</strong>, no “Firestore”.)</em></p>
       <ul>
         <li>Elegí una <strong>ubicación</strong> (la que te quede más cerca, ej. <em>us-central1</em>).</li>
         <li>Cuando pregunte por las reglas, elegí <strong>“Empezar en modo bloqueado”</strong> y <strong>Habilitar</strong>. (Las reglas buenas las ponés en el paso 4.)</li>
@@ -267,7 +265,7 @@
     <div class="step-num">5</div>
     <div class="step-body">
       <h3>Copiar tu configuración</h3>
-      <p>Arriba a la izquierda tocá la <strong>rueda ⚙️ → “Configuración del proyecto”</strong>. Bajá hasta <strong>“Tus apps”</strong> y tocá el ícono web <span class="key">&lt;/&gt;</span>.</p>
+      <p>En el menú de la izquierda tocá la <strong>rueda ⚙️ Configuración → “General”</strong>. En esa página <strong>bajá hasta el final</strong>, a la sección <strong>“Tus apps”</strong>, y tocá el ícono web <span class="key">&lt;/&gt;</span>.</p>
       <ul>
         <li>Ponele un apodo (ej. <em>mall-web</em>). <strong>No</strong> marques “Firebase Hosting”.</li>
         <li>Tocá <strong>“Registrar app”</strong>.</li>
@@ -299,31 +297,21 @@
   </div>
 
   <div class="part-label">Parte B · Cuando recibas tu web</div>
-  <p class="part-title">El primer ingreso y cómo volverte “Dueño”.</p>
+  <p class="part-title">El primer ingreso y los roles.</p>
 
   <div class="step">
     <div class="step-num">7</div>
     <div class="step-body">
-      <h3>Crear tu cuenta y volverte Dueño</h3>
-      <p>Entrá al link que te paso, tocá <strong>“Crear cuenta”</strong> y elegí tu usuario y contraseña. Vas a entrar como <strong>Empleado</strong> (acceso normal).</p>
-      <p>Para volverte <strong>★ Dueño</strong> (ver la caja, el Panel de Admin y la configuración), hacé esto <strong>una sola vez</strong>:</p>
+      <h3>Crear las cuentas y definir quién es Dueño</h3>
+      <p>Entrá al link que te paso y tocá <strong>“Crear cuenta”</strong> (usuario + contraseña). Tu equipo hace lo mismo: cada uno se crea la suya. Todas entran como <strong>Empleado</strong> (acceso normal).</p>
+      <p>Para que una persona sea <strong>★ Dueño</strong> (ver la caja, el Panel de Admin y la configuración), se le cambia el rol <strong>en la base</strong>:</p>
       <ul>
         <li>Andá a Firebase → <span class="path">Realtime Database</span> → pestaña <strong>“Datos” (Data)</strong>.</li>
-        <li>Abrí la rama <span class="key">users</span>. Vas a ver tu cuenta (una clave larga de letras y números).</li>
-        <li>Adentro, buscá el campo <span class="key">role</span> — va a decir <span class="key">user</span>.</li>
-        <li>Hacé doble clic en ese valor, cambialo por <span class="key">owner</span> y apretá Enter.</li>
-        <li>Volvé a la web, recargá (F5) y listo: ahora sos <strong>★ Dueño</strong>.</li>
+        <li>Abrí la rama <span class="key">users</span> y buscá la cuenta (una clave larga de letras y números).</li>
+        <li>El campo <span class="key">role</span> dice <span class="key">user</span>. Hacé doble clic, cambialo por <span class="key">owner</span> y Enter.</li>
+        <li>Esa persona recarga la web (F5) y ya es <strong>★ Dueño</strong>.</li>
       </ul>
-      <div class="callout warn"><span class="tag">Importante</span> — esto es solo para el <b>primer dueño</b> (el arranque). Después, a cualquier otra persona la ascendés desde la propia web, sin tocar Firebase (paso 8).</div>
-    </div>
-  </div>
-
-  <div class="step">
-    <div class="step-num">8</div>
-    <div class="step-body">
-      <h3>Invitar a tu equipo</h3>
-      <p>Pasale el link a tus socios y empleados. Cada uno se crea su cuenta y entra como <strong>Empleado</strong>.</p>
-      <p>Vos, desde <span class="path">Panel de Admin → Usuarios</span>, ascendés a <strong>Dueño</strong> a quien quieras que tenga acceso completo (caja, admin, configuración). El resto queda como Empleado.</p>
+      <div class="callout tip"><span class="tag">En criollo</span> — arrancá haciéndote Dueño a vos con este paso. A cualquier socio que quieras darle acceso completo, le hacés lo mismo (cambiar su <b>role</b> a <b>owner</b>). El resto del equipo queda como Empleado.</div>
     </div>
   </div>
 
