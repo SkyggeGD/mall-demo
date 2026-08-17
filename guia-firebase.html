@@ -236,17 +236,30 @@
     <div class="step-num">4</div>
     <div class="step-body">
       <h3>Poner las reglas de seguridad</h3>
-      <p>Dentro de <span class="path">Realtime Database</span>, abrí la pestaña <strong>“Reglas” (Rules)</strong>. Borrá todo lo que haya y pegá esto exacto; después tocá <strong>“Publicar”</strong>:</p>
+      <p>Dentro de <span class="path">Realtime Database</span>, abrí la pestaña <strong>“Reglas” (Rules)</strong>. Borrá todo lo que haya y pegá esto <strong>tal cual</strong> (no hace falta que lo entiendas, es copiar y pegar); después tocá <strong>“Publicar”</strong>:</p>
       <div class="code">
         <div class="code-head"><span>reglas de seguridad</span><button class="copy-btn" data-copy="rules">Copiar</button></div>
         <pre><code id="rules">{
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    "timers":             { ".read": true, ".write": true },
+    "users":              { ".read": "auth != null", "$uid": { ".write": "auth != null &amp;&amp; auth.uid == $uid" } },
+    "meta":               { ".read": true, ".write": "auth != null" },
+    "balances":           { ".read": "auth != null", ".write": "auth != null" },
+    "logs":               { ".read": "auth != null", ".write": "auth != null", ".indexOn": "timestamp" },
+    "payments":           { ".read": "auth != null", ".write": "auth != null", ".indexOn": "timestamp" },
+    "lastAction":         { ".read": "auth != null", ".write": "auth != null" },
+    "slotAvailableSince": { ".read": "auth != null", ".write": "auth != null" },
+    "categoryState":      { ".read": "auth != null", ".write": "auth != null" },
+    "caja":               { ".read": "auth != null", ".write": "auth != null", "historial": { ".indexOn": "timestamp" } },
+    "uiPrefs":            { "$uid": { ".read": "auth != null &amp;&amp; auth.uid == $uid", ".write": "auth != null &amp;&amp; auth.uid == $uid" } },
+    "weeklyHistory":      { ".read": "auth != null", ".write": "auth != null" },
+    "weeklyArchive":      { ".read": "auth != null", ".write": "auth != null" },
+    "siteConfig":         { ".read": "auth != null", ".write": "auth != null" },
+    "jobPayOverrides":    { ".read": "auth != null", ".write": "auth != null" }
   }
 }</code></pre>
       </div>
-      <div class="callout tip"><span class="tag">Qué hace</span> — deja ver y editar los datos <b>solo a quien tenga cuenta y sesión iniciada</b>. Nadie de afuera puede entrar a tu información.</div>
+      <div class="callout tip"><span class="tag">Qué hacen</span> — controlan <b>quién puede ver y editar</b> cada parte: solo personas con cuenta y sesión iniciada. <b>No guardan datos</b> (eso lo hace la base sola); son el “guardia de seguridad”. Copialas tal cual.</div>
     </div>
   </div>
 
