@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configurar tu Firebase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d0f14;
+    --surface:#171a21;
+    --surface-2:#1e222c;
+    --surface-3:#12151b;
+    --border:#2a2f3b;
+    --border-soft:#20242e;
+    --text:#eef1f6;
+    --text-dim:#b7becd;
+    --text-dimmer:#8b92a3;
+    --text-faint:#5c6373;
+    --abastecimiento:#f0a44e;
+    --limpieza:#4fc3c9;
+    --seguridad:#e6564f;
+    --contabilidad:#63c17a;
+    --administracion:#a586e8;
+    --radius:14px;
+    --maxw:760px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 12% -5%, rgba(165,134,232,0.10), transparent 40%),
+      radial-gradient(circle at 92% 2%, rgba(240,164,78,0.06), transparent 42%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:16px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:44px 20px 80px;}
+
+  /* HERO */
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--text-faint);margin:0 0 14px;
+  }
+  h1{
+    font-family:'Oswald',sans-serif;font-weight:700;
+    font-size:clamp(34px,6vw,52px);line-height:1.05;margin:0;
+    letter-spacing:.5px;text-wrap:balance;
+  }
+  .accent-bar{
+    height:6px;width:min(340px,60%);border-radius:3px;margin:18px 0 22px;
+    background:linear-gradient(90deg,var(--abastecimiento) 0%,var(--limpieza) 27%,var(--seguridad) 52%,var(--contabilidad) 76%,var(--administracion) 100%);
+  }
+  .lede{font-size:18px;color:var(--text-dim);margin:0 0 24px;max-width:62ch;}
+  .meta{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:999px;padding:8px 15px;font-size:14px;font-weight:600;color:var(--text-dim);
+  }
+  .chip b{color:var(--text);font-weight:700;}
+
+  /* SECTIONS */
+  .part-label{
+    display:flex;align-items:center;gap:12px;
+    font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--administracion);margin:52px 0 8px;
+  }
+  .part-label::after{content:"";flex:1;height:1px;background:var(--border);}
+  .part-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:24px;margin:0 0 24px;color:var(--text);}
+
+  /* STEP CARD */
+  .step{
+    display:grid;grid-template-columns:44px 1fr;gap:18px;
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:22px 24px;margin-bottom:16px;
+  }
+  .step-num{
+    width:44px;height:44px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;
+    background:rgba(165,134,232,0.14);color:var(--administracion);
+    border:1px solid rgba(165,134,232,0.35);
+  }
+  .step-body{min-width:0;}
+  .step h3{
+    font-family:'Oswald',sans-serif;font-weight:600;font-size:20px;margin:6px 0 10px;letter-spacing:.3px;
+  }
+  .step p{margin:0 0 12px;color:var(--text-dim);}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:20px;color:var(--text-dim);}
+  .step li{margin-bottom:6px;}
+  .step li::marker{color:var(--text-faint);}
+  strong{color:var(--text);font-weight:600;}
+  .path{
+    font-family:'JetBrains Mono',monospace;font-size:13px;
+    background:var(--surface-3);border:1px solid var(--border-soft);border-radius:6px;
+    padding:2px 7px;color:var(--limpieza);white-space:nowrap;
+  }
+  .key{
+    font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;
+    background:var(--surface-3);border:1px solid var(--border-soft);border-radius:6px;padding:1px 7px;color:var(--contabilidad);
+  }
+
+  /* CALLOUTS */
+  .callout{
+    border-radius:10px;padding:14px 16px 14px 18px;margin:14px 0;
+    font-size:14.5px;line-height:1.55;border:1px solid var(--border);
+    position:relative;
+  }
+  .callout::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:4px 0 0 4px;}
+  .callout.warn{background:rgba(240,164,78,0.07);border-color:rgba(240,164,78,0.30);}
+  .callout.warn::before{background:var(--abastecimiento);}
+  .callout.tip{background:rgba(99,193,122,0.07);border-color:rgba(99,193,122,0.30);}
+  .callout.tip::before{background:var(--contabilidad);}
+  .callout b{color:var(--text);}
+  .callout .tag{font-weight:700;}
+  .callout.warn .tag{color:var(--abastecimiento);}
+  .callout.tip .tag{color:var(--contabilidad);}
+
+  /* CODE */
+  .code{
+    position:relative;background:var(--surface-3);border:1px solid var(--border);
+    border-radius:10px;margin:14px 0;overflow:hidden;
+  }
+  .code-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 14px;border-bottom:1px solid var(--border-soft);
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-faint);letter-spacing:.05em;
+  }
+  .code pre{margin:0;padding:14px 16px;overflow-x:auto;}
+  .code code{
+    font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;color:var(--text);
+    white-space:pre;
+  }
+  .copy-btn{
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;
+    background:var(--surface);color:var(--text-dim);border:1px solid var(--border);
+    border-radius:6px;padding:4px 11px;transition:all .15s;
+  }
+  .copy-btn:hover{border-color:var(--administracion);color:var(--text);}
+  .copy-btn:focus-visible{outline:2px solid var(--administracion);outline-offset:2px;}
+  .copy-btn.done{color:var(--contabilidad);border-color:var(--contabilidad);}
+
+  /* FAQ */
+  .faq{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;}
+  .faq summary{
+    cursor:pointer;padding:15px 18px;font-weight:600;color:var(--text);list-style:none;
+    display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:15px;
+  }
+  .faq summary::-webkit-details-marker{display:none;}
+  .faq summary::after{content:"+";color:var(--administracion);font-size:20px;font-weight:400;line-height:1;}
+  .faq[open] summary::after{content:"–";}
+  .faq summary:hover{background:var(--surface-2);}
+  .faq .ans{padding:0 18px 16px;color:var(--text-dim);font-size:14.5px;}
+  .faq .ans p{margin:0;}
+
+  .footer{
+    margin-top:48px;padding-top:22px;border-top:1px solid var(--border);
+    color:var(--text-faint);font-size:13.5px;text-align:center;line-height:1.6;
+  }
+  a{color:var(--administracion);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  @media (max-width:520px){
+    .wrap{padding:32px 16px 60px;}
+    .step{grid-template-columns:1fr;gap:12px;padding:18px;}
+    .step-num{width:38px;height:38px;font-size:19px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Panel de Gestión del Mall · GTA Hub RP</p>
+  <h1>Configurá tu Firebase</h1>
+  <div class="accent-bar"></div>
+  <p class="lede">Firebase es la base de datos <strong>gratuita de Google</strong> donde tu Mall va a guardar todo (trabajos, caja, stock, ropa). Cada Mall tiene la suya, así tus datos quedan <strong>privados y separados</strong> de los demás. Esta guía te lleva paso a paso — no hace falta saber programar.</p>
+  <div class="meta">
+    <span class="chip">⏱️ <b>~15 minutos</b></span>
+    <span class="chip">💲 <b>Gratis</b> (plan Spark)</span>
+    <span class="chip">🔑 Necesitás una cuenta de Google</span>
+  </div>
+
+  <div class="part-label">Parte A · Crear tu Firebase</div>
+  <p class="part-title">La hacés una sola vez y me pasás el resultado.</p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Crear el proyecto</h3>
+      <p>Entrá a <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> e iniciá sesión con tu cuenta de Google.</p>
+      <ul>
+        <li>Tocá <strong>“Crear un proyecto”</strong>.</li>
+        <li>Ponele un nombre (ej. <em>mall-losSantos</em>). El nombre es solo tuyo, los usuarios no lo ven.</li>
+        <li>Cuando te pregunte por <strong>Google Analytics</strong>, podés <strong>desactivarlo</strong> (no hace falta) y darle continuar.</li>
+        <li>Esperá unos segundos a que se cree y tocá <strong>Continuar</strong>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Activar el inicio de sesión</h3>
+      <p>En el menú de la izquierda (<strong>Compilación / Build</strong>) entrá a <span class="path">Authentication</span> y tocá <strong>“Comenzar”</strong>.</p>
+      <ul>
+        <li>Abrí la pestaña <strong>“Sign-in method”</strong> (Método de acceso).</li>
+        <li>Elegí <strong>“Correo electrónico/contraseña”</strong>.</li>
+        <li>Activá la <strong>primera opción</strong> (no hace falta el enlace por email) y <strong>Guardar</strong>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>Crear la base de datos</h3>
+      <p>En el menú <strong>Compilación / Build</strong> entrá a <span class="path">Realtime Database</span> y tocá <strong>“Crear base de datos”</strong>.</p>
+      <div class="callout warn"><span class="tag">⚠️ Ojo</span> — tiene que ser <b>Realtime Database</b>, <b>NO</b> “Firestore Database”. Son parecidas pero la app usa Realtime Database. Si creaste la que no era, no pasa nada: dejala y creá la correcta.</div>
+      <ul>
+        <li>Elegí una <strong>ubicación</strong> (la que te quede más cerca, ej. <em>us-central1</em>).</li>
+        <li>Cuando pregunte por las reglas, elegí <strong>“Empezar en modo bloqueado”</strong> y <strong>Habilitar</strong>. (Las reglas buenas las ponés en el paso 4.)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h3>Poner las reglas de seguridad</h3>
+      <p>Dentro de <span class="path">Realtime Database</span>, abrí la pestaña <strong>“Reglas” (Rules)</strong>. Borrá todo lo que haya y pegá esto exacto; después tocá <strong>“Publicar”</strong>:</p>
+      <div class="code">
+        <div class="code-head"><span>reglas de seguridad</span><button class="copy-btn" data-copy="rules">Copiar</button></div>
+        <pre><code id="rules">{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null"
+  }
+}</code></pre>
+      </div>
+      <div class="callout tip"><span class="tag">Qué hace</span> — deja ver y editar los datos <b>solo a quien tenga cuenta y sesión iniciada</b>. Nadie de afuera puede entrar a tu información.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <h3>Copiar tu configuración</h3>
+      <p>Arriba a la izquierda tocá la <strong>rueda ⚙️ → “Configuración del proyecto”</strong>. Bajá hasta <strong>“Tus apps”</strong> y tocá el ícono web <span class="key">&lt;/&gt;</span>.</p>
+      <ul>
+        <li>Ponele un apodo (ej. <em>mall-web</em>). <strong>No</strong> marques “Firebase Hosting”.</li>
+        <li>Tocá <strong>“Registrar app”</strong>.</li>
+        <li>Te va a mostrar un bloque como este. <strong>Copialo entero</strong>:</li>
+      </ul>
+      <div class="code">
+        <div class="code-head"><span>ejemplo de config (el tuyo tendrá otros valores)</span></div>
+        <pre><code>const firebaseConfig = {
+  apiKey: "AIza...tu-clave...",
+  authDomain: "tu-proyecto.firebaseapp.com",
+  databaseURL: "https://tu-proyecto-default-rtdb.firebaseio.com",
+  projectId: "tu-proyecto",
+  storageBucket: "tu-proyecto.firebasestorage.app",
+  messagingSenderId: "0000000000",
+  appId: "1:0000000000:web:xxxxxxxxxxxx"
+};</code></pre>
+      </div>
+      <div class="callout warn"><span class="tag">⚠️ Importante</span> — fijate que aparezca la línea <span class="key">databaseURL</span>. Si <b>no</b> está, copiala de la página de <b>Realtime Database</b> (es la dirección que figura arriba de la base, tipo <span class="path">https://tu-proyecto-default-rtdb.firebaseio.com</span>). Sin eso, no funciona.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <h3>Mandarme el config</h3>
+      <p>Pegámelo por privado y yo lo dejo cargado en tu web y te paso el <strong>link listo para usar</strong>.</p>
+      <div class="callout tip"><span class="tag">Tranqui</span> — este bloque <b>se puede compartir sin problema</b>. En las webs, esta configuración va dentro del código y <b>no es una contraseña</b>. Lo que protege tus datos son las <b>reglas</b> (paso 4) y el <b>login</b>.</div>
+    </div>
+  </div>
+
+  <div class="part-label">Parte B · Cuando recibas tu web</div>
+  <p class="part-title">El primer ingreso y cómo volverte “Dueño”.</p>
+
+  <div class="step">
+    <div class="step-num">7</div>
+    <div class="step-body">
+      <h3>Crear tu cuenta y volverte Dueño</h3>
+      <p>Entrá al link que te paso, tocá <strong>“Crear cuenta”</strong> y elegí tu usuario y contraseña. Vas a entrar como <strong>Empleado</strong> (acceso normal).</p>
+      <p>Para volverte <strong>★ Dueño</strong> (ver la caja, el Panel de Admin y la configuración), hacé esto <strong>una sola vez</strong>:</p>
+      <ul>
+        <li>Andá a Firebase → <span class="path">Realtime Database</span> → pestaña <strong>“Datos” (Data)</strong>.</li>
+        <li>Abrí la rama <span class="key">users</span>. Vas a ver tu cuenta (una clave larga de letras y números).</li>
+        <li>Adentro, buscá el campo <span class="key">role</span> — va a decir <span class="key">user</span>.</li>
+        <li>Hacé doble clic en ese valor, cambialo por <span class="key">owner</span> y apretá Enter.</li>
+        <li>Volvé a la web, recargá (F5) y listo: ahora sos <strong>★ Dueño</strong>.</li>
+      </ul>
+      <div class="callout warn"><span class="tag">Importante</span> — esto es solo para el <b>primer dueño</b> (el arranque). Después, a cualquier otra persona la ascendés desde la propia web, sin tocar Firebase (paso 8).</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">8</div>
+    <div class="step-body">
+      <h3>Invitar a tu equipo</h3>
+      <p>Pasale el link a tus socios y empleados. Cada uno se crea su cuenta y entra como <strong>Empleado</strong>.</p>
+      <p>Vos, desde <span class="path">Panel de Admin → Usuarios</span>, ascendés a <strong>Dueño</strong> a quien quieras que tenga acceso completo (caja, admin, configuración). El resto queda como Empleado.</p>
+    </div>
+  </div>
+
+  <div class="part-label">Preguntas frecuentes</div>
+  <div style="height:8px"></div>
+
+  <details class="faq">
+    <summary>¿Es realmente gratis?</summary>
+    <div class="ans"><p>Sí. El plan gratuito de Firebase (Spark) tiene límites de sobra para administrar un Mall. No hace falta cargar tarjeta.</p></div>
+  </details>
+  <details class="faq">
+    <summary>¿Es seguro compartir el “config”?</summary>
+    <div class="ans"><p>Sí. En las webs, esa configuración viaja dentro del código de la página y está pensada para ser pública. No es una contraseña. Tus datos los protegen las reglas de seguridad y el inicio de sesión.</p></div>
+  </details>
+  <details class="faq">
+    <summary>¿Otros jugadores pueden ver o editar mis datos?</summary>
+    <div class="ans"><p>No. Con las reglas del paso 4, solo las personas que tengan cuenta en tu web y sesión iniciada pueden ver o cambiar algo. Vos controlás quién entra.</p></div>
+  </details>
+  <details class="faq">
+    <summary>Me equivoqué / quiero empezar de cero</summary>
+    <div class="ans"><p>Podés borrar los datos desde Realtime Database (pestaña Datos), o escribirme y lo vemos juntos. No se rompe nada.</p></div>
+  </details>
+  <details class="faq">
+    <summary>No me aparece “databaseURL” en el config</summary>
+    <div class="ans"><p>Pasa a veces. Copiala de la página de Realtime Database: es la dirección que figura arriba de la base, del tipo <span class="path">https://tu-proyecto-default-rtdb.firebaseio.com</span>. Agregala al config antes de mandármelo.</p></div>
+  </details>
+
+  <div class="footer">
+    ¿Te trabaste en algún paso? Escribime y lo resolvemos.<br>
+    Panel de Gestión del Mall · GTA Hub RP
+  </div>
+
+</div>
+
+<script>
+  document.querySelectorAll('.copy-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var el = document.getElementById(btn.dataset.copy);
+      if(!el) return;
+      navigator.clipboard.writeText(el.textContent).then(function(){
+        var old = btn.textContent;
+        btn.textContent = '¡Copiado!';
+        btn.classList.add('done');
+        setTimeout(function(){ btn.textContent = old; btn.classList.remove('done'); }, 1600);
+      }).catch(function(){});
+    });
+  });
+</script>
+</body>
+</html>
